@@ -15,16 +15,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException ex) {
-
-        ErrorResponse response = new ErrorResponse(
-                HttpStatus.BAD_REQUEST.value(),
-                ex.getMessage(),
-                LocalDateTime.now());
-
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-    }
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleBadCredentials(BadCredentialsException ex) {
@@ -69,5 +59,44 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response,
                 HttpStatus.INTERNAL_SERVER_ERROR);
     }
+    
+ 
+        @ExceptionHandler(ResourceNotFoundException.class)
+        public ResponseEntity<ErrorResponse> handleResourceNotFound(
+                ResourceNotFoundException ex) {
+
+            ErrorResponse error = new ErrorResponse(
+                    HttpStatus.NOT_FOUND.value(),
+                    ex.getMessage(),
+                    LocalDateTime.now());
+
+            return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+        }
+        
+        @ExceptionHandler(AccountDisabledException.class)
+        public ResponseEntity<ErrorResponse> handleAccountDisabled(
+                AccountDisabledException ex) {
+
+            ErrorResponse response = new ErrorResponse(
+                    HttpStatus.FORBIDDEN.value(),
+                    ex.getMessage(),
+                    LocalDateTime.now());
+
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        }
+        
+        @ExceptionHandler(DuplicateResourceException.class)
+        public ResponseEntity<ErrorResponse> handleDuplicateResource(
+                DuplicateResourceException ex) {
+
+            ErrorResponse response = new ErrorResponse(
+                    HttpStatus.CONFLICT.value(),
+                    ex.getMessage(),
+                    LocalDateTime.now());
+
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        }
+
+    
 
 }

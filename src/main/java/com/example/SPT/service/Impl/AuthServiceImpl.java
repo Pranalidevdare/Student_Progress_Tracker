@@ -3,6 +3,7 @@ package com.example.SPT.service.Impl;
 import java.time.LocalDateTime;
 
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -10,6 +11,7 @@ import com.example.SPT.dto.request.LoginRequest;
 import com.example.SPT.dto.request.RegisterRequest;
 import com.example.SPT.dto.response.AuthResponse;
 import com.example.SPT.entity.User;
+import com.example.SPT.exception.AccountDisabledException;
 import com.example.SPT.repository.UserRepository;
 import com.example.SPT.security.JwtService;
 import com.example.SPT.service.AuthService;
@@ -83,7 +85,13 @@ this.jwtService = jwtService;
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() ->
-                        new RuntimeException("Invalid Email or Password"));
+                new BadCredentialsException("Invalid Email or Password"));
+
+        
+        if (!user.isEnabled()) {
+            throw new AccountDisabledException(
+                    "Your account has been disabled. Please contact the administrator.");
+        }
 
         String token = jwtService.generateToken(user.getEmail());
 
