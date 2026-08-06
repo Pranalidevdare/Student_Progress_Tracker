@@ -1,37 +1,48 @@
 package com.finalproject.studentprogresstracker.dto.request;
 
+import java.time.LocalDate;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class TrainerRequest {
 
-    @NotBlank(message = "Trainer name is required")
-    private String trainerName;
+    @NotBlank(message = "First Name is required")
+    private String firstName;
 
-    @Email(message = "Invalid email")
+    @NotBlank(message = "Last Name is required")
+    private String lastName;
+
+    @Email(message = "Invalid Email")
+    @NotBlank(message = "Email is required")
     private String email;
 
-    @Pattern(regexp = "^[0-9]{10}$", message = "Mobile number must be 10 digits")
-    private String mobileNumber;
+    @NotBlank(message = "Mobile Number is required")
+    private String mobile;
 
-    @NotBlank(message = "Department is required")
-    private String department;
+    @NotNull(message = "Date of Birth is required")
+    private LocalDate dateOfBirth;
+
+    private String gender;
+
+    private String employeeId;
 
     private String specialization;
 
-    @Positive(message = "Experience must be greater than 0")
-    private int experience;
-
-    @NotBlank(message = "Qualification is required")
     private String qualification;
+
+    private Integer experience;
+
+    private String batchId;
+
+    private String profileImage;
 }

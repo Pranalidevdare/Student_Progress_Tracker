@@ -1,58 +1,53 @@
 package com.finalproject.studentprogresstracker.entity;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@AllArgsConstructor
-@NoArgsConstructor
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Document(collection = "trainers")
 public class Trainer {
 
     @Id
-    private String trainerId;
+    private String id;
 
-    @NotBlank(message = "Trainer name is required")
-    private String trainerName;
-
-    @Email(message = "Invalid email format")
-    @NotBlank(message = "Email is required")
+    // Personal Details
+    private String firstName;
+    private String lastName;
     private String email;
+    private String mobile;
+    private LocalDate dateOfBirth;
+    private String gender;
 
-    @Pattern(
-        regexp = "^[6-9]\\d{9}$",
-        message = "Enter a valid 10-digit mobile number"
-    )
-    private String mobileNumber;
-
-    @NotBlank(message = "Department is required")
-    private String department;
-
-    @NotBlank(message = "Specialization is required")
+    // Professional Details
+    private String employeeId;
     private String specialization;
-
-    @Positive(message = "Experience must be greater than zero")
-    private int experience;
-
-    @NotBlank(message = "Qualification is required")
     private String qualification;
+    private Integer experience;
 
-    @NotNull(message = "Joining date is required")
-    private LocalDate joiningDate;
+    // Batch Details
+    private String batchName;
+    private String batchId;
 
-    private String status; // ACTIVE / INACTIVE
+    // Profile
+    private String profileImage;
 
+    // Account
+    private String password;
+
+    private Boolean active;
+
+    // Audit Fields
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

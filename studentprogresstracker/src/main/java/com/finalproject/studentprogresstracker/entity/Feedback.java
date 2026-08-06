@@ -1,29 +1,55 @@
 package com.finalproject.studentprogresstracker.entity;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 @Document(collection = "feedback")
 public class Feedback {
 
     @Id
-    private String feedbackId;
+    private String id;
 
-    private String trainerId;
-
+    // Student Details
     private String studentId;
+    private String studentName;
 
-    private int rating;
+    // Trainer Details
+    private String trainerId;
+    private String trainerName;
 
-    private String feedback;
+    // Batch Details
+    private String batchId;
 
-    private LocalDate feedbackDate;
+    // Feedback Details
+    private Integer rating;
+
+    private String subject;
+
+    private String comments;
+
+    /**
+     * PENDING
+     * REVIEWED
+     */
+    private String status;
+
+    // Trainer Response (Optional)
+    private String trainerResponse;
+
+    // Audit Fields
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
 }

@@ -2,7 +2,6 @@ package com.finalproject.studentprogresstracker.dto.request;
 
 import java.time.LocalDate;
 
-import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -11,25 +10,36 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class AssignmentRequest {
 
-    @NotBlank(message = "Trainer ID is required")
+    @NotBlank(message = "Trainer Id is required")
     private String trainerId;
 
-    @NotBlank(message = "Batch ID is required")
+    @NotBlank(message = "Batch Id is required")
     private String batchId;
 
-    @NotBlank(message = "Title is required")
+    @NotBlank(message = "Assignment title is required")
     private String title;
 
     @NotBlank(message = "Description is required")
     private String description;
 
-    @NotNull(message = "Due date is required")
-    @Future(message = "Due date must be a future date")
+    @NotBlank(message = "Subject is required")
+    private String subject;
+
+    @NotNull(message = "Total Marks is required")
+    private Integer totalMarks;
+
+    @NotNull(message = "Assigned Date is required")
+    private LocalDate assignedDate;
+
+    @NotNull(message = "Due Date is required")
     private LocalDate dueDate;
 
+    private String attachmentUrl;
+
+    private String status;
 }

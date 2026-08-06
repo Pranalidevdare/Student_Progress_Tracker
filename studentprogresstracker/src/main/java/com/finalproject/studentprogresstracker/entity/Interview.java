@@ -1,61 +1,74 @@
 package com.finalproject.studentprogresstracker.entity;
 
-import lombok.*;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-@Document(collection = "interview_assessments")
-@Getter
-@Setter
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@Document(collection = "interviews")
 public class Interview {
 
     @Id
-    private String assessmentId;
+    private String id;
 
-    // Candidate Details (Auto-filled)
-    private String candidateId;
+    // Student Details
+    private String studentId;
+    private String studentName;
+
+    // Trainer Details
     private String trainerId;
+    private String trainerName;
 
-    private String interviewDate;
-    private String reportingTime;
+    // Batch Details
+    private String batchId;
 
-    private String fullName;
-    private String email;
-    private String mobileNumber;
-    private String collegeName;
-    private String degreeName;
-    private Integer passingYear;
-    private Double familyIncome;
+    // Interview Information
+    private LocalDate interviewDate;
 
-    // Aptitude
-    private Integer aptitude;
-    private Integer mathematics;
-    private Integer reasoning;
-    private Integer computerKnowledge;
-    private Integer aptitudeTotal;
+    private String interviewType;
 
-    // Technical
-    private String technicalPanelist;
-    private String technicalAssessment;
-    private String stability;
-    private String technicalRemarks;
-    private String technicalStatus;
+    // Technical Evaluation
+    private Integer technicalMarks;
 
-    // Soft Skills
-    private String softSkillPanelist;
-    private Integer warmUp;
-    private Integer speaking;
-    private Integer listening;
-    private Integer grammar;
-    private Integer vocabulary;
-    private Integer guidedSpeaking;
-    private Integer softSkillTotal;
+    // Soft Skill Evaluation
+    private Integer softSkillMarks;
 
-    // Final Result
-    private Integer overallScore;
-    private String finalStatus;
+    // Communication Skills
+    private Integer communicationMarks;
+
+    // Problem Solving
+    private Integer problemSolvingMarks;
+
+    // Behaviour
+    private Integer behaviourMarks;
+
+    // Total
+    private Integer totalMarks;
+
+    // Remarks
     private String remarks;
+
+    /**
+     * SCHEDULED
+     * COMPLETED
+     * SELECTED
+     * REJECTED
+     */
+    private String status;
+
+    // Audit Fields
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
 }

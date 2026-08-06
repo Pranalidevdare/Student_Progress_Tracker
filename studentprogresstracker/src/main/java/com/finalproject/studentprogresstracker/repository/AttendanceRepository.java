@@ -13,8 +13,6 @@ public interface AttendanceRepository extends MongoRepository<Attendance, String
 
     List<Attendance> findByStudentId(String studentId);
 
-    List<Attendance> findByTrainerId(String trainerId);
-
     List<Attendance> findByBatchId(String batchId);
 
     List<Attendance> findByAttendanceDate(LocalDate attendanceDate);

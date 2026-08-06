@@ -1,31 +1,54 @@
 package com.finalproject.studentprogresstracker.entity;
 
+import java.time.LocalDateTime;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 @Document(collection = "performance")
 public class Performance {
 
     @Id
-    private String performanceId;
+    private String id;
 
-    private String trainerId;
-
+    // Student Details
     private String studentId;
+    private String studentName;
 
-    private double attendancePercentage;
+    // Batch Details
+    private String batchId;
 
-    private double assignmentMarks;
+    // Performance Metrics
+    private Double attendancePercentage;
+    private Double assignmentPercentage;
+    private Double assessmentPercentage;
+    private Double interviewPercentage;
 
-    private double testMarks;
+    // Overall Performance
+    private Double overallPercentage;
+    private Integer rank;
 
-    private String overallPerformance;
+    /**
+     * EXCELLENT
+     * GOOD
+     * AVERAGE
+     * NEEDS_IMPROVEMENT
+     */
+    private String performanceStatus;
 
+    // Trainer Feedback
     private String remarks;
+
+    // Audit Fields
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

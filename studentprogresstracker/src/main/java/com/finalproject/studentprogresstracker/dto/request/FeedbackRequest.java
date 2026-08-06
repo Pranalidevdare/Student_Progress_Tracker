@@ -9,22 +9,25 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class FeedbackRequest {
 
-    @NotBlank(message = "Trainer ID is required")
-    private String trainerId;
-
-    @NotBlank(message = "Student ID is required")
+    @NotBlank(message = "Student Id is required")
     private String studentId;
+
+    @NotBlank(message = "Trainer Id is required")
+    private String trainerId;
 
     @Min(value = 1, message = "Rating must be between 1 and 5")
     @Max(value = 5, message = "Rating must be between 1 and 5")
-    private int rating;
+    private Integer rating;
 
-    @NotBlank(message = "Feedback is required")
-    private String feedback;
+    @NotBlank(message = "Subject is required")
+    private String subject;
+
+    @NotBlank(message = "Comments are required")
+    private String comments;
 
 }

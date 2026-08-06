@@ -10,8 +10,8 @@ import com.finalproject.studentprogresstracker.entity.StudyMaterial;
 @Repository
 public interface StudyMaterialRepository extends MongoRepository<StudyMaterial, String> {
 
-    List<StudyMaterial> findByTrainerId(String trainerId);
+    List<StudyMaterial> findByBatchId(String batchId);
 
-    List<StudyMaterial> findBySubject(String subject);
+    List<StudyMaterial> findByTrainerId(String trainerId);
 
 }
