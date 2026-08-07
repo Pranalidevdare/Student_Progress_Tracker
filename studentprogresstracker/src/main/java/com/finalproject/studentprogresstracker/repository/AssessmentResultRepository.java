@@ -13,5 +13,7 @@ public interface AssessmentResultRepository extends MongoRepository<AssessmentRe
     List<AssessmentResult> findByStudentId(String studentId);
 
     List<AssessmentResult> findByAssessmentId(String assessmentId);
-
+    
+    long countByStudentId(String studentId);
+    long countByTrainerId(String trainerId);
 }

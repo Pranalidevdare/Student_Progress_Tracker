@@ -25,7 +25,10 @@ public class PerformanceMapper {
                 .interviewPercentage(performance.getInterviewPercentage())
                 .overallPercentage(performance.getOverallPercentage())
                 .rank(performance.getRank())
-                .performanceStatus(performance.getPerformanceStatus())
+                .performanceStatus(
+                        performance.getPerformanceStatus() != null
+                                ? performance.getPerformanceStatus().name()
+                                : null)
                 .remarks(performance.getRemarks())
                 .build();
     }

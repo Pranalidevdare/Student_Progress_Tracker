@@ -1,5 +1,6 @@
 package com.finalproject.studentprogresstracker.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
@@ -12,4 +13,14 @@ public interface PerformanceRepository extends MongoRepository<Performance, Stri
 
     Optional<Performance> findByStudentId(String studentId);
 
+    List<Performance> findByBatchId(String batchId);
+
+    // For Rank Calculation
+    List<Performance> findAllByOrderByOverallPercentageDesc();
+
+    // For Topper Module
+    List<Performance> findAllByOrderByRankAsc();
+
+    List<Performance> findByBatchIdOrderByRankAsc(String batchId);
+    
 }

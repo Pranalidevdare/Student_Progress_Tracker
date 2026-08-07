@@ -1,4 +1,4 @@
-package com.finalproject.studentprogresstracker.repository;
+	package com.finalproject.studentprogresstracker.repository;
 
 import java.util.Optional;
 
@@ -11,5 +11,5 @@ import com.finalproject.studentprogresstracker.entity.Interview;
 public interface InterviewRepository extends MongoRepository<Interview, String> {
 
     Optional<Interview> findByStudentId(String studentId);
-
+    long countByTrainerId(String trainerId);
 }

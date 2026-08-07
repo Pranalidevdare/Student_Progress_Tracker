@@ -1,11 +1,13 @@
 package com.finalproject.studentprogresstracker.service.Impl;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 
 import com.finalproject.studentprogresstracker.dto.response.PerformanceResponse;
 import com.finalproject.studentprogresstracker.entity.Performance;
+import com.finalproject.studentprogresstracker.enums.PerformanceStatus;
 import com.finalproject.studentprogresstracker.mapper.PerformanceMapper;
 import com.finalproject.studentprogresstracker.repository.PerformanceRepository;
 import com.finalproject.studentprogresstracker.service.PerformanceService;
@@ -17,7 +19,6 @@ import lombok.RequiredArgsConstructor;
 public class PerformanceServiceImpl implements PerformanceService {
 
     private final PerformanceRepository performanceRepository;
-
     private final PerformanceMapper performanceMapper;
 
     @Override
@@ -37,42 +38,58 @@ public class PerformanceServiceImpl implements PerformanceService {
                 .orElseThrow(() ->
                         new RuntimeException("Performance not found for Student Id : " + studentId));
 
-        /*
-         * Calculate Overall Performance
-         *
-         * Formula:
-         * Attendance 25%
-         * Assignment 25%
-         * Assessment 30%
-         * Interview 20%
-         */
+        // Validate Percentage Values
+
+        double attendance = validatePercentage(
+                performance.getAttendancePercentage(),
+                "Attendance Percentage");
+
+        double assignment = validatePercentage(
+                performance.getAssignmentPercentage(),
+                "Assignment Percentage");
+
+        double assessment = validatePercentage(
+                performance.getAssessmentPercentage(),
+                "Assessment Percentage");
+
+        double interview = validatePercentage(
+                performance.getInterviewPercentage(),
+                "Interview Percentage");
+
+        // Calculate Overall Percentage
 
         double overallPercentage =
-                (performance.getAttendancePercentage() * 0.25)
-              + (performance.getAssignmentPercentage() * 0.25)
-              + (performance.getAssessmentPercentage() * 0.30)
-              + (performance.getInterviewPercentage() * 0.20);
+                (attendance * 0.25)
+              + (assignment * 0.25)
+              + (assessment * 0.30)
+              + (interview * 0.20);
+
+        // Round to 2 Decimal Places
+
+        overallPercentage = Math.round(overallPercentage * 100.0) / 100.0;
 
         performance.setOverallPercentage(overallPercentage);
 
-        // Performance Status
+        // Set Performance Status
 
         if (overallPercentage >= 85) {
 
-            performance.setPerformanceStatus("EXCELLENT");
+        	performance.setPerformanceStatus(
+        	        PerformanceStatus.EXCELLENT);
 
         } else if (overallPercentage >= 70) {
 
-            performance.setPerformanceStatus("GOOD");
+        	performance.setPerformanceStatus(
+        	        PerformanceStatus.GOOD);
 
         } else if (overallPercentage >= 50) {
 
-            performance.setPerformanceStatus("AVERAGE");
-
+        	performance.setPerformanceStatus(
+        	        PerformanceStatus.AVERAGE);
         } else {
 
-            performance.setPerformanceStatus("NEEDS_IMPROVEMENT");
-
+        	performance.setPerformanceStatus(
+        	        PerformanceStatus.NEEDS_IMPROVEMENT);
         }
 
         performance.setUpdatedAt(LocalDateTime.now());
@@ -80,8 +97,62 @@ public class PerformanceServiceImpl implements PerformanceService {
         Performance updatedPerformance =
                 performanceRepository.save(performance);
 
-        return performanceMapper.toResponse(updatedPerformance);
+        // Update Student Rankings
 
+        updateRanks();
+
+        return performanceMapper.toResponse(updatedPerformance);
     }
 
+    /**
+     * Updates the rank of all students based on Overall Percentage.
+     * Students having the same Overall Percentage receive the same rank.
+     */
+    private void updateRanks() {
+
+        List<Performance> performances =
+                performanceRepository.findAllByOrderByOverallPercentageDesc();
+
+        int rank = 1;
+        Double previousPercentage = null;
+
+        for (int i = 0; i < performances.size(); i++) {
+
+            Performance performance = performances.get(i);
+
+            if (previousPercentage != null
+                    && performance.getOverallPercentage().equals(previousPercentage)) {
+
+                performance.setRank(rank);
+
+            } else {
+
+                rank = i + 1;
+                performance.setRank(rank);
+                previousPercentage = performance.getOverallPercentage();
+            }
+        }
+
+        performanceRepository.saveAll(performances);
+    }
+
+    /**
+     * Validates percentage values.
+     * Returns 0 if value is null.
+     * Throws exception if percentage is outside 0-100.
+     */
+    private double validatePercentage(Double percentage, String fieldName) {
+
+        if (percentage == null) {
+            return 0.0;
+        }
+
+        if (percentage < 0 || percentage > 100) {
+
+            throw new IllegalArgumentException(
+                    fieldName + " must be between 0 and 100");
+        }
+
+        return percentage;
+    }
 }

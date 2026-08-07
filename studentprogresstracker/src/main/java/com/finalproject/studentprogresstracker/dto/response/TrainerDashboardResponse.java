@@ -1,5 +1,7 @@
 package com.finalproject.studentprogresstracker.dto.response;
 
+import java.util.List;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,5 +26,14 @@ public class TrainerDashboardResponse {
     private Integer totalInterviews;
 
     private Integer attendanceMarkedToday;
+    private Integer totalGuestSessions;
+
+    private Integer totalNotices;
+
+    private List<TopperResponse> topPerformers;
+
+    private List<NoticeResponse> latestNotices;
+
+    private List<GuestSessionResponse> upcomingGuestSessions;
 
 }

@@ -6,24 +6,59 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+
+import com.finalproject.studentprogresstracker.dto.response.GuestSessionResponse;
+import com.finalproject.studentprogresstracker.dto.response.NoticeResponse;
+import com.finalproject.studentprogresstracker.dto.response.TopperResponse;
+import com.finalproject.studentprogresstracker.entity.Trainer;
+import com.finalproject.studentprogresstracker.mapper.GuestSessionMapper;
+import com.finalproject.studentprogresstracker.mapper.NoticeMapper;
+import com.finalproject.studentprogresstracker.mapper.TrainerMapper;
+import com.finalproject.studentprogresstracker.repository.AssessmentResultRepository;
+import com.finalproject.studentprogresstracker.repository.AssignmentRepository;
+import com.finalproject.studentprogresstracker.repository.AttendanceRepository;
+import com.finalproject.studentprogresstracker.repository.GuestSessionRepository;
+import com.finalproject.studentprogresstracker.repository.InterviewRepository;
+import com.finalproject.studentprogresstracker.repository.NoticeRepository;
+import com.finalproject.studentprogresstracker.repository.StudentRepository;
+import com.finalproject.studentprogresstracker.repository.StudyMaterialRepository;
+import com.finalproject.studentprogresstracker.repository.TrainerRepository;
+import com.finalproject.studentprogresstracker.service.TopperService;
+import lombok.RequiredArgsConstructor;
 import com.finalproject.studentprogresstracker.dto.request.TrainerRequest;
 import com.finalproject.studentprogresstracker.dto.response.TrainerDashboardResponse;
 import com.finalproject.studentprogresstracker.dto.response.TrainerResponse;
-import com.finalproject.studentprogresstracker.entity.Trainer;
-import com.finalproject.studentprogresstracker.mapper.TrainerMapper;
-import com.finalproject.studentprogresstracker.repository.TrainerRepository;
-import com.finalproject.studentprogresstracker.service.TrainerService;
 
-import lombok.RequiredArgsConstructor;
+import com.finalproject.studentprogresstracker.repository.PerformanceRepository;
+
+import com.finalproject.studentprogresstracker.service.TrainerService;
 
 @Service
 @RequiredArgsConstructor
 public class TrainerServiceImpl implements TrainerService {
 
     private final TrainerRepository trainerRepository;
-
+    private final TopperService topperService;
     private final TrainerMapper trainerMapper;
+    private final StudentRepository studentRepository;
+    private final NoticeMapper noticeMapper;
+    private final AssignmentRepository assignmentRepository;
+    private final GuestSessionMapper guestSessionMapper;
+    private final AssessmentResultRepository assessmentRepository;
+    // OR AssessmentResultRepository if your project uses that
 
+    private final StudyMaterialRepository materialRepository;
+
+    private final InterviewRepository interviewRepository;
+
+    private final AttendanceRepository attendanceRepository;
+
+    private final NoticeRepository noticeRepository;
+
+    private final GuestSessionRepository guestSessionRepository;
+
+    
     @Override
     public TrainerResponse registerTrainer(TrainerRequest request) {
 
@@ -107,20 +142,82 @@ public class TrainerServiceImpl implements TrainerService {
 
         TrainerResponse trainerResponse = trainerMapper.toResponse(trainer);
 
-        TrainerDashboardResponse dashboard = TrainerDashboardResponse.builder()
+     // Total Students
+        long totalStudents =
+                studentRepository.countByBatchId(trainer.getBatchId());
+
+        // Total Assignments
+        long totalAssignments =
+                assignmentRepository.countByTrainerId(trainerId);
+
+        // Total Assessment Results
+        long totalAssessments =
+                assessmentRepository.countByTrainerId(trainerId);
+
+        // Total Study Materials
+        long totalStudyMaterials =
+                materialRepository.countByTrainerId(trainerId);
+
+        // Total Interviews
+        long totalInterviews =
+                interviewRepository.countByTrainerId(trainerId);
+
+        // Today's Attendance
+        long attendanceToday =
+                attendanceRepository.countByTrainerIdAndAttendanceDate(
+                        trainerId,
+                        LocalDate.now());
+        long totalGuestSessions =
+                guestSessionRepository.countByTrainerId(trainerId);
+        
+        long totalNotices =
+                noticeRepository.countByTrainerId(trainerId);
+        
+        List<NoticeResponse> latestNotices =
+                noticeRepository.findByTrainerId(trainerId)
+                        .stream()
+                        .limit(5)
+                        .map(noticeMapper::toResponse)
+                        .toList();
+        
+        List<GuestSessionResponse> guestSessions =
+                guestSessionRepository.findByTrainerId(trainerId)
+                        .stream()
+                        .map(guestSessionMapper::toResponse)
+                        .toList();
+        
+        List<TopperResponse> topPerformers =
+                topperService.getTopRankers(5);
+        
+        return TrainerDashboardResponse.builder()
+
                 .trainer(trainerResponse)
 
-                // Default values (replace later using repositories)
-                .totalStudents(0)
-                .totalAssignments(0)
-                .totalAssessments(0)
-                .totalStudyMaterials(0)
-                .totalInterviews(0)
-                .attendanceMarkedToday(0)
+                .totalStudents((int) totalStudents)
+
+                .totalAssignments((int) totalAssignments)
+
+                .totalAssessments((int) totalAssessments)
+
+                .totalStudyMaterials((int) totalStudyMaterials)
+
+                .totalInterviews((int) totalInterviews)
+
+                .attendanceMarkedToday((int) attendanceToday)
+
+                .totalGuestSessions((int) totalGuestSessions)
+
+                .totalNotices((int) totalNotices)
+
+                .latestNotices(latestNotices)
+
+                .upcomingGuestSessions(guestSessions)
+
+                .topPerformers(topPerformers)
 
                 .build();
-
-        return dashboard;
+        
+        
     }
 
 }

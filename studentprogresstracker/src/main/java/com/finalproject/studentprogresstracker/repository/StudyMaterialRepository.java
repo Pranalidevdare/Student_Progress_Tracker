@@ -13,5 +13,6 @@ public interface StudyMaterialRepository extends MongoRepository<StudyMaterial, 
     List<StudyMaterial> findByBatchId(String batchId);
 
     List<StudyMaterial> findByTrainerId(String trainerId);
-
+    long countByTrainerId(String trainerId);
+    long countByBatchId(String batchId);
 }

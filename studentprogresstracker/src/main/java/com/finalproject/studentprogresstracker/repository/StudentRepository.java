@@ -15,5 +15,6 @@ public interface StudentRepository extends MongoRepository<Student, String> {
     boolean existsByEmail(String email);
 
     Optional<Student> findByMobile(String mobile);
+    long countByBatchId(String batchId);
 
 }

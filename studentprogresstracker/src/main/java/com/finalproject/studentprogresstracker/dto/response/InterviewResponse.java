@@ -29,17 +29,17 @@ public class InterviewResponse {
 
     private String interviewType;
 
-    private Integer technicalMarks;
+    private double technicalMarks;
 
-    private Integer softSkillMarks;
+    private double softSkillMarks;
 
-    private Integer communicationMarks;
+    private double communicationMarks;
 
-    private Integer problemSolvingMarks;
+    private double problemSolvingMarks;
 
-    private Integer behaviourMarks;
+    private double behaviourMarks;
 
-    private Integer totalMarks;
+    private double totalMarks;
 
     private String remarks;
 

@@ -16,5 +16,8 @@ public interface AttendanceRepository extends MongoRepository<Attendance, String
     List<Attendance> findByBatchId(String batchId);
 
     List<Attendance> findByAttendanceDate(LocalDate attendanceDate);
+    long countByTrainerIdAndAttendanceDate(
+            String trainerId,
+            LocalDate attendanceDate);
 
 }

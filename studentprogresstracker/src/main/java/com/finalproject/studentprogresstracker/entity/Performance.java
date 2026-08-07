@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import com.finalproject.studentprogresstracker.enums.PerformanceStatus;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -43,7 +45,7 @@ public class Performance {
      * AVERAGE
      * NEEDS_IMPROVEMENT
      */
-    private String performanceStatus;
+    private PerformanceStatus performanceStatus;
 
     // Trainer Feedback
     private String remarks;

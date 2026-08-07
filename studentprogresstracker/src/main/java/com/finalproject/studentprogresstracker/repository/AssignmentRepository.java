@@ -13,5 +13,8 @@ public interface AssignmentRepository extends MongoRepository<Assignment, String
     List<Assignment> findByBatchId(String batchId);
 
     List<Assignment> findByTrainerId(String trainerId);
-
+    
+    long countByBatchId(String batchId);
+    long countByTrainerId(String trainerId);
+    long countByStudentIdAndStatus(String studentId, String status);
 }
