@@ -8,6 +8,8 @@ public enum BatchStatus {
 
     COMPLETED,
 
-    CANCELLED
+    CANCELLED,
+    
+    INACTIVE
 
 }

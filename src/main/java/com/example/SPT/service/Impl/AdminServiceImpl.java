@@ -4,15 +4,21 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.example.SPT.dto.request.AddTrainerRequest;
+import com.example.SPT.dto.request.CreateBatchRequest;
+import com.example.SPT.dto.request.UpdateBatchRequest;
 import com.example.SPT.dto.request.UpdateStudentRequest;
 import com.example.SPT.dto.request.UpdateTrainerRequest;
 import com.example.SPT.dto.response.AdminDashboardResponse;
+import com.example.SPT.dto.response.BatchResponse;
 import com.example.SPT.dto.response.StudentResponse;
 import com.example.SPT.dto.response.UserResponse;
+import com.example.SPT.entity.Batch;
 import com.example.SPT.entity.User;
 import com.example.SPT.enums.BatchStatus;
 import com.example.SPT.enums.Role;
@@ -336,14 +342,13 @@ this.passwordEncoder = passwordEncoder;
             throw new ResourceNotFoundException("Trainer not found");
         }
 
-        // Email duplicate check
+        
         if (!trainer.getEmail().equals(request.getEmail())
                 && userRepository.existsByEmail(request.getEmail())) {
 
             throw new DuplicateResourceException("Email already exists");
         }
 
-        // Phone duplicate check
         if (!trainer.getPhone().equals(request.getPhone())
                 && userRepository.existsByPhone(request.getPhone())) {
 
@@ -366,5 +371,262 @@ this.passwordEncoder = passwordEncoder;
                 .trainerType(trainer.getTrainerType())
                 .enabled(trainer.isEnabled())
                 .build();
+    }
+    
+    
+    @Override
+    public UserResponse enableTrainer(String id) {
+
+        User trainer = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Trainer not found"));
+
+        if (trainer.getRole() != Role.TRAINER) {
+            throw new ResourceNotFoundException("Trainer not found");
+        }
+
+        trainer.setEnabled(true);
+        trainer.setUpdatedAt(LocalDateTime.now());
+
+        trainer = userRepository.save(trainer);
+
+        return UserResponse.builder()
+                .id(trainer.getId())
+                .fullName(trainer.getFullName())
+                .email(trainer.getEmail())
+                .phone(trainer.getPhone())
+                .role(trainer.getRole())
+                .trainerType(trainer.getTrainerType())
+                .enabled(trainer.isEnabled())
+                .build();
+    }
+    
+    @Override
+    public UserResponse disableTrainer(String id) {
+
+        User trainer = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Trainer not found"));
+
+        if (trainer.getRole() != Role.TRAINER) {
+            throw new ResourceNotFoundException("Trainer not found");
+        }
+
+        trainer.setEnabled(false);
+        trainer.setUpdatedAt(LocalDateTime.now());
+
+        trainer = userRepository.save(trainer);
+
+        return UserResponse.builder()
+                .id(trainer.getId())
+                .fullName(trainer.getFullName())
+                .email(trainer.getEmail())
+                .phone(trainer.getPhone())
+                .role(trainer.getRole())
+                .trainerType(trainer.getTrainerType())
+                .enabled(trainer.isEnabled())
+                .build();
+    }
+    
+    @Override
+    public void deleteTrainer(String id) {
+
+        User trainer = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Trainer not found"));
+
+        if (trainer.getRole() != Role.TRAINER) {
+            throw new ResourceNotFoundException("Trainer not found");
+        }
+
+        userRepository.delete(trainer);
+    }
+    
+    private User getTrainerById(String id, TrainerType trainerType) {
+
+        User trainer = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Trainer not found"));
+
+        if (trainer.getRole() != Role.TRAINER) {
+            throw new ResourceNotFoundException("Trainer not found");
+        }
+
+        if (trainer.getTrainerType() != trainerType) {
+            throw new IllegalArgumentException(
+                    trainerType + " trainer expected.");
+        }
+
+        if (!trainer.isEnabled()) {
+            throw new IllegalArgumentException(
+                    "Trainer account is disabled.");
+        }
+
+        return trainer;
+    }
+    
+    private BatchResponse mapToBatchResponse(Batch batch) {
+
+        return BatchResponse.builder()
+                .id(batch.getId())
+                .batchName(batch.getBatchName())
+                .courseName(batch.getCourseName())
+
+                .technicalTrainerId(batch.getTechnicalTrainer().getId())
+                .technicalTrainerName(batch.getTechnicalTrainer().getFullName())
+
+                .softSkillsTrainerId(batch.getSoftSkillsTrainer().getId())
+                .softSkillsTrainerName(batch.getSoftSkillsTrainer().getFullName())
+
+                .startDate(batch.getStartDate())
+                .endDate(batch.getEndDate())
+                .capacity(batch.getCapacity())
+                .status(batch.getStatus())
+                .build();
+    }
+    
+    @Override
+    public BatchResponse createBatch(CreateBatchRequest request) {
+
+        if (batchRepository.existsByBatchName(request.getBatchName())) {
+            throw new DuplicateResourceException(
+                    "Batch name already exists.");
+        }
+
+        if (request.getTechnicalTrainerId()
+                .equals(request.getSoftSkillsTrainerId())) {
+
+            throw new IllegalArgumentException(
+                    "Technical and Soft Skills trainer cannot be the same.");
+        }
+
+        if (request.getEndDate().isBefore(request.getStartDate())) {
+            throw new IllegalArgumentException(
+                    "End date must be after start date.");
+        }
+
+        User technicalTrainer = getTrainerById(
+                request.getTechnicalTrainerId(),
+                TrainerType.TECHNICAL);
+
+        User softSkillsTrainer = getTrainerById(
+                request.getSoftSkillsTrainerId(),
+                TrainerType.SOFT_SKILLS);
+
+        Batch batch = Batch.builder()
+                .batchName(request.getBatchName())
+                .courseName(request.getCourseName())
+                .technicalTrainer(technicalTrainer)
+                .softSkillsTrainer(softSkillsTrainer)
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
+                .capacity(request.getCapacity())
+                .status(BatchStatus.ACTIVE)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+        Batch savedBatch = batchRepository.save(batch);
+
+        return mapToBatchResponse(savedBatch);
+    }
+    
+    @Override
+    public Page<BatchResponse> getAllBatches(Pageable pageable) {
+
+        return batchRepository.findAll(pageable)
+                .map(this::mapToBatchResponse);
+    }
+    
+    private Batch getBatch(String id) {
+
+        return batchRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Batch not found"));
+    }
+    
+    private void validateBatch(UpdateBatchRequest request,
+            Batch existingBatch) {
+
+if (!existingBatch.getBatchName().equalsIgnoreCase(request.getBatchName())
+&& batchRepository.existsByBatchName(request.getBatchName())) {
+
+throw new DuplicateResourceException(
+ "Batch name already exists.");
+}
+
+if (request.getTechnicalTrainerId()
+.equals(request.getSoftSkillsTrainerId())) {
+
+throw new IllegalArgumentException(
+ "Technical and Soft Skills trainer cannot be same.");
+}
+
+if (!request.getEndDate().isAfter(request.getStartDate())) {
+
+throw new IllegalArgumentException(
+ "End date must be after start date.");
+}
+
+if (request.getCapacity() <= 0) {
+
+throw new IllegalArgumentException(
+ "Capacity must be greater than zero.");
+}
+}
+    
+    @Override
+    public BatchResponse getBatchById(String id) {
+
+        Batch batch = getBatch(id);
+
+        return mapToBatchResponse(batch);
+    }
+    
+    @Override
+    public BatchResponse updateBatch(String batchId,
+                                     UpdateBatchRequest request) {
+
+        Batch batch = getBatch(batchId);
+
+        validateBatch(request, batch);
+
+        User technicalTrainer = getTrainerById(
+                request.getTechnicalTrainerId(),
+                TrainerType.TECHNICAL);
+
+        User softSkillsTrainer = getTrainerById(
+                request.getSoftSkillsTrainerId(),
+                TrainerType.SOFT_SKILLS);
+
+        batch.setBatchName(request.getBatchName());
+        batch.setCourseName(request.getCourseName());
+        batch.setTechnicalTrainer(technicalTrainer);
+        batch.setSoftSkillsTrainer(softSkillsTrainer);
+        batch.setStartDate(request.getStartDate());
+        batch.setEndDate(request.getEndDate());
+        batch.setCapacity(request.getCapacity());
+        batch.setStatus(request.getStatus());
+        batch.setUpdatedAt(LocalDateTime.now());
+
+        Batch updatedBatch = batchRepository.save(batch);
+
+        return mapToBatchResponse(updatedBatch);
+    }
+    
+    @Override
+    public void deactivateBatch(String id) {
+
+        Batch batch = getBatch(id);
+
+        if (batch.getStatus() == BatchStatus.COMPLETED) {
+            throw new IllegalArgumentException(
+                    "Completed batch cannot be deactivated.");
+        }
+
+        batch.setStatus(BatchStatus.INACTIVE);
+        batch.setUpdatedAt(LocalDateTime.now());
+
+        batchRepository.save(batch);
     }
 }

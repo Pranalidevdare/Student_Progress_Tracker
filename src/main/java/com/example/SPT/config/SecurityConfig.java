@@ -1,7 +1,5 @@
 package com.example.SPT.config;
 
-
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -24,8 +22,9 @@ public class SecurityConfig {
     private final UserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    public SecurityConfig(UserDetailsService userDetailsService,
-                          JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(
+            UserDetailsService userDetailsService,
+            JwtAuthenticationFilter jwtAuthenticationFilter) {
 
         this.userDetailsService = userDetailsService;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
@@ -58,11 +57,11 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http)
-            throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http) throws Exception {
 
         http
-
+            // JWT based application
             .csrf(csrf -> csrf.disable())
 
             .sessionManagement(session ->
@@ -77,25 +76,41 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
 
-            		.requestMatchers(
-            		        "/api/auth/**",
-            		        "/swagger-ui/**",
-            		        "/swagger-ui.html",
-            		        "/v3/api-docs/**"
-            		)
-            		.permitAll()
-            		
-                    .requestMatchers("/api/admin/**")
-                    .hasRole("ADMIN")
+                // ==========================================
+                // PUBLIC APIs
+                // ==========================================
+                .requestMatchers(
+                        "/api/auth/**",
+                        "/api/applications/submit",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html",
+                        "/v3/api-docs/**"
+                ).permitAll()
 
-                    .requestMatchers("/api/trainer/**")
-                    .hasRole("TRAINER")
+                // ==========================================
+                // ADMIN APIs
+                // ==========================================
+                .requestMatchers("/api/admin/**")
+                .hasRole("ADMIN")
 
-                    .requestMatchers("/api/student/**")
-                    .hasRole("STUDENT")
+                // ==========================================
+                // TRAINER APIs
+                // ==========================================
+                .requestMatchers("/api/trainer/**")
+                .hasRole("TRAINER")
 
-                    .anyRequest()
-                    .authenticated());
+                // ==========================================
+                // STUDENT APIs
+                // ==========================================
+                .requestMatchers("/api/student/**")
+                .hasRole("STUDENT")
+
+                // ==========================================
+                // EVERYTHING ELSE
+                // ==========================================
+                .anyRequest()
+                .authenticated()
+            );
 
         return http.build();
     }

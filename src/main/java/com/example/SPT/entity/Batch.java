@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import com.example.SPT.enums.BatchStatus;
@@ -30,9 +31,11 @@ public class Batch {
 
     private String courseName;
 
-    private String technicalTrainerId;
+    @DBRef
+    private User technicalTrainer;
 
-    private String softSkillsTrainerId;
+    @DBRef
+    private User softSkillsTrainer;
 
     private LocalDate startDate;
 
