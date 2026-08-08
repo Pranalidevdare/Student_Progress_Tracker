@@ -99,23 +99,7 @@ this.passwordEncoder = passwordEncoder;
         List<User> students = userRepository.findByRole(Role.STUDENT);
 
         return students.stream()
-
-                .map(student -> StudentResponse.builder()
-
-                        .id(student.getId())
-
-                        .fullName(student.getFullName())
-
-                        .email(student.getEmail())
-
-                        .phone(student.getPhone())
-
-                        .role(student.getRole())
-
-                        .enabled(student.isEnabled())
-
-                        .build())
-
+                .map(this::mapStudentToResponse)
                 .collect(Collectors.toList());
     }
     
@@ -130,14 +114,7 @@ this.passwordEncoder = passwordEncoder;
             throw new ResourceNotFoundException("Student not found");
         }
 
-        return StudentResponse.builder()
-                .id(student.getId())
-                .fullName(student.getFullName())
-                .email(student.getEmail())
-                .phone(student.getPhone())
-                .role(student.getRole())
-                .enabled(student.isEnabled())
-                .build();
+        return mapStudentToResponse(student);
     }
     
     @Override
@@ -176,14 +153,7 @@ this.passwordEncoder = passwordEncoder;
 
         userRepository.save(student);
 
-        return StudentResponse.builder()
-                .id(student.getId())
-                .fullName(student.getFullName())
-                .email(student.getEmail())
-                .phone(student.getPhone())
-                .role(student.getRole())
-                .enabled(student.isEnabled())
-                .build();
+        return mapStudentToResponse(student);
     }
     
     @Override
@@ -202,14 +172,7 @@ this.passwordEncoder = passwordEncoder;
 
         userRepository.save(student);
 
-        return StudentResponse.builder()
-                .id(student.getId())
-                .fullName(student.getFullName())
-                .email(student.getEmail())
-                .phone(student.getPhone())
-                .role(student.getRole())
-                .enabled(student.isEnabled())
-                .build();
+        return mapStudentToResponse(student);
     }
     
     @Override
@@ -228,14 +191,7 @@ this.passwordEncoder = passwordEncoder;
 
         userRepository.save(student);
 
-        return StudentResponse.builder()
-                .id(student.getId())
-                .fullName(student.getFullName())
-                .email(student.getEmail())
-                .phone(student.getPhone())
-                .role(student.getRole())
-                .enabled(student.isEnabled())
-                .build();
+        return mapStudentToResponse(student);
     }
     
     @Override
@@ -306,6 +262,34 @@ this.passwordEncoder = passwordEncoder;
                         .enabled(trainer.isEnabled())
                         .build())
                 .toList();
+    }
+    
+    private StudentResponse mapStudentToResponse(User student) {
+
+        String fullName = student.getFullName();
+
+        String firstName = "";
+        String lastName = "";
+
+        if (fullName != null && !fullName.trim().isEmpty()) {
+
+            String[] nameParts = fullName.trim().split("\\s+", 2);
+
+            firstName = nameParts[0];
+
+            if (nameParts.length > 1) {
+                lastName = nameParts[1];
+            }
+        }
+
+        return StudentResponse.builder()
+                .id(student.getId())
+                .firstName(firstName)
+                .lastName(lastName)
+                .email(student.getEmail())
+                .mobile(student.getPhone())
+                .active(student.isEnabled())
+                .build();
     }
     
     @Override

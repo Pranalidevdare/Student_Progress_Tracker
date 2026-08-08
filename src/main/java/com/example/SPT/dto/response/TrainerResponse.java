@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class StudentResponse {
+public class TrainerResponse {
 
     private String id;
 
@@ -27,15 +27,13 @@ public class StudentResponse {
 
     private String gender;
 
-    private String collegeName;
+    private String employeeId;
 
-    private String degree;
+    private String specialization;
 
-    private String branch;
+    private String qualification;
 
-    private Integer passingYear;
-
-    private Double cgpa;
+    private Integer experience;
 
     private String batchId;
 

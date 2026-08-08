@@ -1,4 +1,4 @@
-package com.example.SPT.dto.response;
+package com.example.SPT.dto.request;
 
 import java.time.LocalDate;
 
@@ -11,15 +11,11 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class StudentResponse {
-
-    private String id;
+public class StudentUpdateRequest {
 
     private String firstName;
 
     private String lastName;
-
-    private String email;
 
     private String mobile;
 
@@ -37,10 +33,5 @@ public class StudentResponse {
 
     private Double cgpa;
 
-    private String batchId;
-
     private String profileImage;
-
-    private Boolean active;
-
 }

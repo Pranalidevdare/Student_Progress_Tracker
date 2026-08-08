@@ -86,7 +86,8 @@ public class ApplicationServiceImpl implements ApplicationService {
     }
     
     @Override
-    public ApplicationResponse submitApplication(ApplicationCreateRequest request) {
+    public ApplicationResponse submitApplication(
+            ApplicationCreateRequest request) {
 
         validateApplication(request);
 
@@ -96,15 +97,29 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .generateSequence(APPLICATION_SEQUENCE);
 
         application.setApplicationNumber(
-                String.format("APP-%d-%06d",
+                String.format(
+                        "APP-%d-%06d",
                         LocalDate.now().getYear(),
                         sequence));
-        application.setStatus(ApplicationStatus.SUBMITTED);
+
+        
+        if (request.getFamilyIncome() <= 400000) {
+
+            application.setStatus(
+                    ApplicationStatus.ELIGIBLE_FOR_APTITUDE);
+
+        } else {
+
+            application.setStatus(
+                    ApplicationStatus.NOT_ELIGIBLE);
+        }
+
         application.setActive(true);
         application.setCreatedAt(LocalDateTime.now());
         application.setUpdatedAt(LocalDateTime.now());
 
-        Application savedApplication = applicationRepository.save(application);
+        Application savedApplication =
+                applicationRepository.save(application);
 
         return mapToResponse(savedApplication);
     }

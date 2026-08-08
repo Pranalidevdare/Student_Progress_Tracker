@@ -89,6 +89,17 @@ public class AdminApplicationController {
                 applicationService.getApplicationsByStatus(status)
         );
     }
+    
+    @GetMapping("/eligible-for-aptitude")
+    public ResponseEntity<List<ApplicationResponse>>
+    getEligibleForAptitude() {
+
+        List<ApplicationResponse> applications =
+                applicationService.getApplicationsByStatus(
+                        ApplicationStatus.ELIGIBLE_FOR_APTITUDE);
+
+        return ResponseEntity.ok(applications);
+    }
 
     // UPDATE APPLICATION
 
