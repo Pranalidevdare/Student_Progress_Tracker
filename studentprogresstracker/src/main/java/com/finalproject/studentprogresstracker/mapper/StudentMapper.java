@@ -51,6 +51,7 @@ public class StudentMapper {
                 .branch(student.getBranch())
                 .passingYear(student.getPassingYear())
                 .cgpa(student.getCgpa())
+                .selectionStatus(student.getSelectionStatus())
                 .batchId(student.getBatchId())
                 .profileImage(student.getProfileImage())
                 .active(student.getActive())

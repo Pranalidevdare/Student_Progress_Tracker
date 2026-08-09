@@ -1,16 +1,21 @@
 package com.finalproject.studentprogresstracker.service.Impl;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
-
+import com.finalproject.studentprogresstracker.dto.request.TrainerRequest;
 import com.finalproject.studentprogresstracker.dto.response.GuestSessionResponse;
 import com.finalproject.studentprogresstracker.dto.response.NoticeResponse;
 import com.finalproject.studentprogresstracker.dto.response.TopperResponse;
+import com.finalproject.studentprogresstracker.dto.response.TrainerDashboardResponse;
+import com.finalproject.studentprogresstracker.dto.response.TrainerResponse;
+import com.finalproject.studentprogresstracker.entity.GuestSession;
+import com.finalproject.studentprogresstracker.entity.Notice;
 import com.finalproject.studentprogresstracker.entity.Trainer;
 import com.finalproject.studentprogresstracker.mapper.GuestSessionMapper;
 import com.finalproject.studentprogresstracker.mapper.NoticeMapper;
@@ -25,28 +30,33 @@ import com.finalproject.studentprogresstracker.repository.StudentRepository;
 import com.finalproject.studentprogresstracker.repository.StudyMaterialRepository;
 import com.finalproject.studentprogresstracker.repository.TrainerRepository;
 import com.finalproject.studentprogresstracker.service.TopperService;
-import lombok.RequiredArgsConstructor;
-import com.finalproject.studentprogresstracker.dto.request.TrainerRequest;
-import com.finalproject.studentprogresstracker.dto.response.TrainerDashboardResponse;
-import com.finalproject.studentprogresstracker.dto.response.TrainerResponse;
-
-import com.finalproject.studentprogresstracker.repository.PerformanceRepository;
-
 import com.finalproject.studentprogresstracker.service.TrainerService;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class TrainerServiceImpl implements TrainerService {
 
     private final TrainerRepository trainerRepository;
+
     private final TopperService topperService;
+
     private final TrainerMapper trainerMapper;
+
     private final StudentRepository studentRepository;
+
     private final NoticeMapper noticeMapper;
+
     private final AssignmentRepository assignmentRepository;
+
     private final GuestSessionMapper guestSessionMapper;
+
+    /*
+     * Your project uses AssessmentResultRepository
+     * as the assessment repository.
+     */
     private final AssessmentResultRepository assessmentRepository;
-    // OR AssessmentResultRepository if your project uses that
 
     private final StudyMaterialRepository materialRepository;
 
@@ -58,35 +68,73 @@ public class TrainerServiceImpl implements TrainerService {
 
     private final GuestSessionRepository guestSessionRepository;
 
-    
-    @Override
-    public TrainerResponse registerTrainer(TrainerRequest request) {
 
-        if (trainerRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException(
-                    "Trainer already exists with email : " + request.getEmail());
+    // =========================================================
+    // REGISTER TRAINER
+    // =========================================================
+
+    @Override
+    public TrainerResponse registerTrainer(
+            TrainerRequest request) {
+
+        if (request == null) {
+            throw new IllegalArgumentException(
+                    "Trainer request cannot be null");
         }
 
-        Trainer trainer = trainerMapper.toEntity(request);
+        if (request.getEmail() == null
+                || request.getEmail().isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Trainer email is required");
+        }
+
+        if (trainerRepository.existsByEmail(
+                request.getEmail())) {
+
+            throw new RuntimeException(
+                    "Trainer already exists with email : "
+                            + request.getEmail());
+        }
+
+        Trainer trainer =
+                trainerMapper.toEntity(request);
 
         trainer.setActive(true);
-        trainer.setCreatedAt(LocalDateTime.now());
-        trainer.setUpdatedAt(LocalDateTime.now());
 
-        Trainer savedTrainer = trainerRepository.save(trainer);
+        LocalDateTime now =
+                LocalDateTime.now();
 
-        return trainerMapper.toResponse(savedTrainer);
+        trainer.setCreatedAt(now);
+        trainer.setUpdatedAt(now);
+
+        Trainer savedTrainer =
+                trainerRepository.save(trainer);
+
+        return trainerMapper.toResponse(
+                savedTrainer);
     }
+
+
+    // =========================================================
+    // GET TRAINER BY ID
+    // =========================================================
 
     @Override
-    public TrainerResponse getTrainerById(String id) {
+    public TrainerResponse getTrainerById(
+            String id) {
 
-        Trainer trainer = trainerRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Trainer not found with id : " + id));
+        Trainer trainer =
+                getTrainer(id);
 
-        return trainerMapper.toResponse(trainer);
+        return trainerMapper.toResponse(
+                trainer);
     }
+
+
+    // =========================================================
+    // GET ALL TRAINERS
+    // =========================================================
 
     @Override
     public List<TrainerResponse> getAllTrainers() {
@@ -96,128 +144,328 @@ public class TrainerServiceImpl implements TrainerService {
                 .map(trainerMapper::toResponse)
                 .collect(Collectors.toList());
     }
+
+
+    // =========================================================
+    // UPDATE TRAINER
+    // =========================================================
+
     @Override
-    public TrainerResponse updateTrainer(String id, TrainerRequest request) {
+    public TrainerResponse updateTrainer(
+            String id,
+            TrainerRequest request) {
 
-        Trainer trainer = trainerRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Trainer not found with id : " + id));
+        if (request == null) {
+            throw new IllegalArgumentException(
+                    "Trainer request cannot be null");
+        }
 
-        trainer.setFirstName(request.getFirstName());
-        trainer.setLastName(request.getLastName());
-        trainer.setEmail(request.getEmail());
-        trainer.setMobile(request.getMobile());
-        trainer.setDateOfBirth(request.getDateOfBirth());
-        trainer.setGender(request.getGender());
-        trainer.setEmployeeId(request.getEmployeeId());
-        trainer.setSpecialization(request.getSpecialization());
-        trainer.setQualification(request.getQualification());
-        trainer.setExperience(request.getExperience());
-        trainer.setBatchId(request.getBatchId());
-        trainer.setProfileImage(request.getProfileImage());
+        Trainer trainer =
+                getTrainer(id);
 
-        trainer.setUpdatedAt(LocalDateTime.now());
+        trainer.setFirstName(
+                request.getFirstName());
 
-        Trainer updatedTrainer = trainerRepository.save(trainer);
+        trainer.setLastName(
+                request.getLastName());
 
-        return trainerMapper.toResponse(updatedTrainer);
+        trainer.setEmail(
+                request.getEmail());
+
+        trainer.setMobile(
+                request.getMobile());
+
+        trainer.setDateOfBirth(
+                request.getDateOfBirth());
+
+        trainer.setGender(
+                request.getGender());
+
+        trainer.setEmployeeId(
+                request.getEmployeeId());
+
+        trainer.setSpecialization(
+                request.getSpecialization());
+
+        trainer.setQualification(
+                request.getQualification());
+
+        trainer.setExperience(
+                request.getExperience());
+
+        trainer.setBatchId(
+                request.getBatchId());
+
+        trainer.setProfileImage(
+                request.getProfileImage());
+
+        trainer.setUpdatedAt(
+                LocalDateTime.now());
+
+        Trainer updatedTrainer =
+                trainerRepository.save(trainer);
+
+        return trainerMapper.toResponse(
+                updatedTrainer);
     }
 
-    @Override
-    public void deleteTrainer(String id) {
 
-        Trainer trainer = trainerRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Trainer not found with id : " + id));
+    // =========================================================
+    // DELETE TRAINER
+    // =========================================================
+
+    @Override
+    public void deleteTrainer(
+            String id) {
+
+        Trainer trainer =
+                getTrainer(id);
 
         trainerRepository.delete(trainer);
     }
 
+
+    // =========================================================
+    // TRAINER DASHBOARD
+    // =========================================================
+
     @Override
-    public TrainerDashboardResponse getTrainerDashboard(String trainerId) {
+    public TrainerDashboardResponse getTrainerDashboard(
+            String trainerId) {
 
-        Trainer trainer = trainerRepository.findById(trainerId)
-                .orElseThrow(() ->
-                        new RuntimeException("Trainer not found with id : " + trainerId));
+        // -----------------------------------------------------
+        // 1. Fetch trainer
+        // -----------------------------------------------------
 
-        TrainerResponse trainerResponse = trainerMapper.toResponse(trainer);
+        Trainer trainer =
+                getTrainer(trainerId);
 
-     // Total Students
-        long totalStudents =
-                studentRepository.countByBatchId(trainer.getBatchId());
+        TrainerResponse trainerResponse =
+                trainerMapper.toResponse(trainer);
 
-        // Total Assignments
+        String batchId =
+                trainer.getBatchId();
+
+
+        // -----------------------------------------------------
+        // 2. Total students in trainer's batch
+        // -----------------------------------------------------
+
+        long totalStudents = 0;
+
+        if (batchId != null
+                && !batchId.isBlank()) {
+
+            totalStudents =
+                    studentRepository
+                            .countByBatchId(batchId);
+        }
+
+
+        // -----------------------------------------------------
+        // 3. Total assignments created by trainer
+        // -----------------------------------------------------
+
         long totalAssignments =
-                assignmentRepository.countByTrainerId(trainerId);
+                assignmentRepository
+                        .countByTrainerId(trainerId);
 
-        // Total Assessment Results
+
+        // -----------------------------------------------------
+        // 4. Total assessment results
+        // -----------------------------------------------------
+
         long totalAssessments =
-                assessmentRepository.countByTrainerId(trainerId);
+                assessmentRepository
+                        .countByTrainerId(trainerId);
 
-        // Total Study Materials
+
+        // -----------------------------------------------------
+        // 5. Total study materials
+        // -----------------------------------------------------
+
         long totalStudyMaterials =
-                materialRepository.countByTrainerId(trainerId);
+                materialRepository
+                        .countByTrainerId(trainerId);
 
-        // Total Interviews
+
+        // -----------------------------------------------------
+        // 6. Total interviews
+        // -----------------------------------------------------
+
         long totalInterviews =
-                interviewRepository.countByTrainerId(trainerId);
+                interviewRepository
+                        .countByTrainerId(trainerId);
 
-        // Today's Attendance
-        long attendanceToday =
-                attendanceRepository.countByTrainerIdAndAttendanceDate(
-                        trainerId,
-                        LocalDate.now());
+
+        // -----------------------------------------------------
+        // 7. Attendance marked today
+        // -----------------------------------------------------
+
+        long attendanceMarkedToday =
+                attendanceRepository
+                        .countByTrainerIdAndAttendanceDate(
+                                trainerId,
+                                LocalDate.now());
+
+
+        // -----------------------------------------------------
+        // 8. Total guest sessions
+        // -----------------------------------------------------
+
         long totalGuestSessions =
-                guestSessionRepository.countByTrainerId(trainerId);
-        
+                guestSessionRepository
+                        .countByTrainerId(trainerId);
+
+
+        // -----------------------------------------------------
+        // 9. Total notices
+        // -----------------------------------------------------
+
         long totalNotices =
-                noticeRepository.countByTrainerId(trainerId);
-        
+                noticeRepository
+                        .countByTrainerId(trainerId);
+
+
+        // -----------------------------------------------------
+        // 10. Latest notices
+        // -----------------------------------------------------
+
         List<NoticeResponse> latestNotices =
-                noticeRepository.findByTrainerId(trainerId)
+                noticeRepository
+                        .findByTrainerId(trainerId)
                         .stream()
+                        .sorted(
+                                Comparator.comparing(
+                                        Notice::getCreatedAt,
+                                        Comparator.nullsLast(
+                                                Comparator.reverseOrder())))
                         .limit(5)
                         .map(noticeMapper::toResponse)
                         .toList();
-        
-        List<GuestSessionResponse> guestSessions =
-                guestSessionRepository.findByTrainerId(trainerId)
+
+
+        // -----------------------------------------------------
+        // 11. Upcoming guest sessions
+        // -----------------------------------------------------
+
+        List<GuestSessionResponse>
+                upcomingGuestSessions =
+                guestSessionRepository
+                        .findByTrainerId(trainerId)
                         .stream()
-                        .map(guestSessionMapper::toResponse)
+                        .filter(session ->
+                                Boolean.TRUE.equals(
+                                        session.getActive()))
+                        .filter(session ->
+                                session.getSessionDate() != null
+                                        && !session.getSessionDate()
+                                                .isBefore(
+                                                        LocalDate.now()))
+                        .sorted(
+                                Comparator.comparing(
+                                        GuestSession::getSessionDate))
+                        .map(
+                                guestSessionMapper
+                                        ::toResponse)
                         .toList();
-        
+
+
+        // -----------------------------------------------------
+        // 12. Top performers of trainer's batch
+        // -----------------------------------------------------
+
         List<TopperResponse> topPerformers =
-                topperService.getTopRankers(5);
-        
+                batchId == null
+                        || batchId.isBlank()
+
+                        ? List.of()
+
+                        : topperService
+                                .getToppersByBatch(batchId)
+                                .stream()
+                                .limit(5)
+                                .toList();
+
+
+        // -----------------------------------------------------
+        // 13. Build dashboard response
+        // -----------------------------------------------------
+
         return TrainerDashboardResponse.builder()
 
                 .trainer(trainerResponse)
 
-                .totalStudents((int) totalStudents)
+                .totalStudents(
+                        toInt(totalStudents))
 
-                .totalAssignments((int) totalAssignments)
+                .totalAssignments(
+                        toInt(totalAssignments))
 
-                .totalAssessments((int) totalAssessments)
+                .totalAssessments(
+                        toInt(totalAssessments))
 
-                .totalStudyMaterials((int) totalStudyMaterials)
+                .totalStudyMaterials(
+                        toInt(totalStudyMaterials))
 
-                .totalInterviews((int) totalInterviews)
+                .totalInterviews(
+                        toInt(totalInterviews))
 
-                .attendanceMarkedToday((int) attendanceToday)
+                .attendanceMarkedToday(
+                        toInt(attendanceMarkedToday))
 
-                .totalGuestSessions((int) totalGuestSessions)
+                .totalGuestSessions(
+                        toInt(totalGuestSessions))
 
-                .totalNotices((int) totalNotices)
+                .totalNotices(
+                        toInt(totalNotices))
 
-                .latestNotices(latestNotices)
+                .topPerformers(
+                        topPerformers)
 
-                .upcomingGuestSessions(guestSessions)
+                .latestNotices(
+                        latestNotices)
 
-                .topPerformers(topPerformers)
+                .upcomingGuestSessions(
+                        upcomingGuestSessions)
 
                 .build();
-        
-        
     }
 
+
+    // =========================================================
+    // PRIVATE: GET TRAINER
+    // =========================================================
+
+    private Trainer getTrainer(
+            String trainerId) {
+
+        if (trainerId == null
+                || trainerId.isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Trainer ID is required");
+        }
+
+        return trainerRepository
+                .findById(trainerId)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Trainer not found with id : "
+                                        + trainerId));
+    }
+
+
+    // =========================================================
+    // PRIVATE: SAFE LONG → INTEGER
+    // =========================================================
+
+    private int toInt(long value) {
+
+        if (value > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+
+        return (int) value;
+    }
 }

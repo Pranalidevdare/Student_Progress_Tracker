@@ -1,5 +1,6 @@
-	package com.finalproject.studentprogresstracker.repository;
+package com.finalproject.studentprogresstracker.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
@@ -8,8 +9,29 @@ import org.springframework.stereotype.Repository;
 import com.finalproject.studentprogresstracker.entity.Interview;
 
 @Repository
-public interface InterviewRepository extends MongoRepository<Interview, String> {
+public interface InterviewRepository
+        extends MongoRepository<Interview, String> {
 
-    Optional<Interview> findByStudentId(String studentId);
+    // Get all interviews of a student
+    List<Interview> findByStudentId(String studentId);
+
+    // Get a specific interview type of a student
+    Optional<Interview> findByStudentIdAndInterviewType(
+            String studentId,
+            String interviewType);
+
+    // Trainer dashboard
     long countByTrainerId(String trainerId);
+
+    // Count interviews by type
+    long countByInterviewType(String interviewType);
+
+    // Count interviews conducted by trainer and type
+    long countByTrainerIdAndInterviewType(
+            String trainerId,
+            String interviewType);
+    
+    Optional<Interview> findTopByStudentIdOrderByUpdatedAtDesc(
+            String studentId);
+
 }
