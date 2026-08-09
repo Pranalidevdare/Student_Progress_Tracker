@@ -69,11 +69,8 @@ public class StudentServiceImpl implements StudentService {
 
         Student student = studentMapper.toEntity(request);
 
-        // Student is not yet selected
+        // Student is not selected yet
         student.setActive(false);
-
-        // Application starts in pending state
-        student.setApplicationStatus(ApplicationStatus.PENDING);
 
         student.setCreatedAt(LocalDateTime.now());
         student.setUpdatedAt(LocalDateTime.now());

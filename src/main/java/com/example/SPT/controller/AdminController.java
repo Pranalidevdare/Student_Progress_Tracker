@@ -10,27 +10,34 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.example.SPT.dto.request.AddTrainerRequest;
+import com.example.SPT.dto.request.AptitudeTestScheduleRequest;
 import com.example.SPT.dto.request.CreateBatchRequest;
 import com.example.SPT.dto.request.UpdateBatchRequest;
 import com.example.SPT.dto.request.UpdateStudentRequest;
 import com.example.SPT.dto.request.UpdateTrainerRequest;
 import com.example.SPT.dto.response.AdminDashboardResponse;
+import com.example.SPT.dto.response.AptitudeTestScheduleResponse;
 import com.example.SPT.dto.response.BatchResponse;
 import com.example.SPT.dto.response.StudentResponse;
 import com.example.SPT.dto.response.UserResponse;
 import com.example.SPT.service.AdminService;
+import com.example.SPT.service.AptitudeTestScheduleService;
 
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/admin")
+@RequiredArgsConstructor
 public class AdminController {
 
     private final AdminService adminService;
+    
+    private final AptitudeTestScheduleService aptitudeTestScheduleService;
 
-    public AdminController(AdminService adminService) {
-        this.adminService = adminService;
-    }
+//    public AdminController(AdminService adminService) {
+//        this.adminService = adminService;
+//    }
 
     @GetMapping("/dashboard")
     public ResponseEntity<AdminDashboardResponse> getDashboard() {
@@ -208,5 +215,19 @@ public ResponseEntity<String> deactivateBatch(
     return ResponseEntity.ok(
             "Batch deactivated successfully");
 }
+
+
+@PostMapping("/aptitude-test/schedule")
+public ResponseEntity<AptitudeTestScheduleResponse> scheduleAptitudeTest(
+        @Valid @RequestBody AptitudeTestScheduleRequest request) {
+
+    AptitudeTestScheduleResponse response =
+            aptitudeTestScheduleService.createSchedule(request);
+
+    return ResponseEntity
+            .status(HttpStatus.CREATED)
+            .body(response);
+}
+
 
 }
