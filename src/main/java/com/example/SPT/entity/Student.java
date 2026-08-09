@@ -6,8 +6,6 @@ import java.time.LocalDateTime;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import com.example.SPT.enums.ApplicationStatus;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -47,10 +45,10 @@ public class Student {
 
     // Account
     private String password;
-
     private Boolean active;
-    
-    private ApplicationStatus applicationStatus;
+
+    // Selection Process
+    private SelectionStatus selectionStatus;
 
     // Audit Fields
     private LocalDateTime createdAt;

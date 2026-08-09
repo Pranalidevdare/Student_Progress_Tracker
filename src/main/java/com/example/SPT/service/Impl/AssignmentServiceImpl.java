@@ -98,17 +98,6 @@ public class AssignmentServiceImpl implements AssignmentService {
     @Override
     public void submitAssignment(AssignmentSubmissionRequest request) {
 
-        boolean alreadySubmitted =
-                assignmentSubmissionRepository
-                        .existsByStudentIdAndAssignmentId(
-                                request.getStudentId(),
-                                request.getAssignmentId());
-
-        if (alreadySubmitted) {
-            throw new RuntimeException(
-                    "Assignment already submitted by this student.");
-        }
-
         AssignmentSubmission submission = AssignmentSubmission.builder()
                 .assignmentId(request.getAssignmentId())
                 .studentId(request.getStudentId())

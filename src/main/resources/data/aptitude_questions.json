@@ -1,0 +1,112 @@
+[
+  {
+    "question": "Neither the students nor the teacher __ aware of the sudden schedule change.",
+    "optionA": "were",
+    "optionB": "is",
+    "optionC": "was",
+    "optionD": "have been",
+    "correctAnswer": "C",
+    "category": "ENGLISH",
+    "marks": 1,
+    "active": true
+  },
+  {
+    "question": "If she __ the instructions carefully, she wouldn't have made that mistake.",
+    "optionA": "read",
+    "optionB": "had read",
+    "optionC": "was reading",
+    "optionD": "reads",
+    "correctAnswer": "B",
+    "category": "ENGLISH",
+    "marks": 1,
+    "active": true
+  },
+  {
+    "question": "By the time the train arrives, we __ waiting for more than an hour.",
+    "optionA": "were",
+    "optionB": "will be",
+    "optionC": "will have been",
+    "optionD": "have",
+    "correctAnswer": "C",
+    "category": "ENGLISH",
+    "marks": 1,
+    "active": true
+  },
+  {
+    "question": "I prefer staying at home __ going out in such bad weather.",
+    "optionA": "than",
+    "optionB": "rather",
+    "optionC": "instead",
+    "optionD": "to",
+    "correctAnswer": "D",
+    "category": "ENGLISH",
+    "marks": 1,
+    "active": true
+  },
+  {
+    "question": "Which of the following uniquely identifies a device on a network?",
+    "optionA": "Subnet Mask",
+    "optionB": "Default Gateway",
+    "optionC": "IP Address",
+    "optionD": "DNS",
+    "correctAnswer": "C",
+    "category": "COMPUTER",
+    "marks": 1,
+    "active": true
+  },
+  {
+    "question": "Which type of memory does the CPU access directly?",
+    "optionA": "Cache Memory",
+    "optionB": "Hard Disk",
+    "optionC": "USB Drive",
+    "optionD": "CD-ROM",
+    "correctAnswer": "A",
+    "category": "COMPUTER",
+    "marks": 1,
+    "active": true
+  },
+  {
+    "question": "Which software is designed to perform specific user tasks?",
+    "optionA": "System Software",
+    "optionB": "Application Software",
+    "optionC": "Firmware",
+    "optionD": "Utility Software",
+    "correctAnswer": "B",
+    "category": "COMPUTER",
+    "marks": 1,
+    "active": true
+  },
+  {
+    "question": "Which of the following is not a programming language?",
+    "optionA": "Python",
+    "optionB": "Java",
+    "optionC": "HTML",
+    "optionD": "Linux",
+    "correctAnswer": "D",
+    "category": "COMPUTER",
+    "marks": 1,
+    "active": true
+  },
+  {
+    "question": "In Microsoft Excel, which symbol is used to start a formula?",
+    "optionA": "=",
+    "optionB": "+",
+    "optionC": "$",
+    "optionD": "@",
+    "correctAnswer": "A",
+    "category": "COMPUTER",
+    "marks": 1,
+    "active": true
+  },
+  {
+    "question": "Which memory type is considered volatile?",
+    "optionA": "ROM",
+    "optionB": "Flash Memory",
+    "optionC": "HDD",
+    "optionD": "RAM",
+    "correctAnswer": "D",
+    "category": "COMPUTER",
+    "marks": 1,
+    "active": true
+  }
+]

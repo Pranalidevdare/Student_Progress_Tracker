@@ -15,11 +15,5 @@ public interface AssignmentSubmissionRepository
 
     List<AssignmentSubmission> findByAssignmentId(String assignmentId);
 
-    List<AssignmentSubmission> findByStudentIdAndBatchId(
-            String studentId,
-            String batchId);
-
-    boolean existsByStudentIdAndAssignmentId(
-            String studentId,
-            String assignmentId);
+    long countByStudentIdAndStatus(String studentId, String status);
 }

@@ -1,7 +1,5 @@
 package com.example.SPT.service.Impl;
-import com.example.SPT.mapper.NoticeMapper;
-import com.example.SPT.mapper.GuestSessionMapper;
-import com.example.SPT.mapper.InterviewMapper;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -10,10 +8,18 @@ import org.springframework.stereotype.Service;
 
 import com.example.SPT.dto.request.StudentRequest;
 import com.example.SPT.dto.request.StudentUpdateRequest;
+import com.example.SPT.dto.response.GuestSessionResponse;
+import com.example.SPT.dto.response.InterviewResponse;
+import com.example.SPT.dto.response.NoticeResponse;
 import com.example.SPT.dto.response.StudentDashboardResponse;
 import com.example.SPT.dto.response.StudentResponse;
+import com.example.SPT.entity.Interview;
+import com.example.SPT.entity.Performance;
+import com.example.SPT.entity.SelectionStatus;
 import com.example.SPT.entity.Student;
-import com.example.SPT.enums.ApplicationStatus;
+import com.example.SPT.mapper.GuestSessionMapper;
+import com.example.SPT.mapper.InterviewMapper;
+import com.example.SPT.mapper.NoticeMapper;
 import com.example.SPT.mapper.StudentMapper;
 import com.example.SPT.repository.AssessmentResultRepository;
 import com.example.SPT.repository.AssignmentRepository;
@@ -25,13 +31,7 @@ import com.example.SPT.repository.PerformanceRepository;
 import com.example.SPT.repository.StudentRepository;
 import com.example.SPT.repository.StudyMaterialRepository;
 import com.example.SPT.service.StudentService;
-import com.example.SPT.entity.Performance;
-import com.example.SPT.entity.AssignmentSubmission;
-import com.example.SPT.entity.Interview;
 
-import com.example.SPT.dto.response.NoticeResponse;
-import com.example.SPT.dto.response.GuestSessionResponse;
-import com.example.SPT.dto.response.InterviewResponse;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -39,14 +39,14 @@ import lombok.RequiredArgsConstructor;
 public class StudentServiceImpl implements StudentService {
 
     private final StudentRepository studentRepository;
+
     private final StudentMapper studentMapper;
+
     private final PerformanceRepository performanceRepository;
-    
+
     private final AssignmentRepository assignmentRepository;
 
     private final AssessmentResultRepository assessmentRepository;
-    
-    private final AssignmentSubmissionRepository assignmentSubmissionRepository;
 
     private final StudyMaterialRepository materialRepository;
 
@@ -54,41 +54,87 @@ public class StudentServiceImpl implements StudentService {
 
     private final GuestSessionRepository guestSessionRepository;
 
-   
+    private final AssignmentSubmissionRepository assignmentSubmissionRepository;
+
     private final InterviewRepository interviewRepository;
+
     private final NoticeMapper noticeMapper;
+
     private final GuestSessionMapper guestSessionMapper;
+
     private final InterviewMapper interviewMapper;
+
+
+    // =========================================================
+    // REGISTER STUDENT
+    // =========================================================
+
     @Override
     public StudentResponse registerStudent(StudentRequest request) {
 
-        if (studentRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException(
-                    "Student already exists with email: " + request.getEmail());
+        if (request == null) {
+            throw new IllegalArgumentException(
+                    "Student request cannot be null");
         }
 
-        Student student = studentMapper.toEntity(request);
+        if (request.getEmail() == null
+                || request.getEmail().isBlank()) {
 
-        // Student is not selected yet
-        student.setActive(false);
+            throw new IllegalArgumentException(
+                    "Email is required");
+        }
 
-        student.setCreatedAt(LocalDateTime.now());
-        student.setUpdatedAt(LocalDateTime.now());
+        if (studentRepository.existsByEmail(request.getEmail())) {
 
-        Student savedStudent = studentRepository.save(student);
+            throw new RuntimeException(
+                    "Student already exists with email: "
+                            + request.getEmail());
+        }
 
-        return studentMapper.toResponse(savedStudent);
+        Student student =
+                studentMapper.toEntity(request);
+
+        student.setActive(true);
+
+        /*
+         * New candidate always starts from
+         * aptitude pending.
+         */
+        student.setSelectionStatus(
+                SelectionStatus.APTITUDE_PENDING);
+
+        LocalDateTime now =
+                LocalDateTime.now();
+
+        student.setCreatedAt(now);
+        student.setUpdatedAt(now);
+
+        Student savedStudent =
+                studentRepository.save(student);
+
+        return studentMapper.toResponse(
+                savedStudent);
     }
+
+
+    // =========================================================
+    // GET STUDENT BY ID
+    // =========================================================
 
     @Override
     public StudentResponse getStudentById(String id) {
 
-        Student student = studentRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Student not found with id: " + id));
+        Student student =
+                getStudent(id);
 
-        return studentMapper.toResponse(student);
+        return studentMapper.toResponse(
+                student);
     }
+
+
+    // =========================================================
+    // GET ALL STUDENTS
+    // =========================================================
 
     @Override
     public List<StudentResponse> getAllStudents() {
@@ -99,166 +145,418 @@ public class StudentServiceImpl implements StudentService {
                 .collect(Collectors.toList());
     }
 
+
+    // =========================================================
+    // UPDATE STUDENT
+    // =========================================================
+
     @Override
-    public StudentResponse updateStudent(String id, StudentUpdateRequest request) {
+    public StudentResponse updateStudent(
+            String id,
+            StudentUpdateRequest request) {
 
-        Student student = studentRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Student not found with id: " + id));
+        if (request == null) {
+            throw new IllegalArgumentException(
+                    "Student update request cannot be null");
+        }
 
-        student.setFirstName(request.getFirstName());
-        student.setLastName(request.getLastName());
-        student.setMobile(request.getMobile());
-        student.setDateOfBirth(request.getDateOfBirth());
-        student.setGender(request.getGender());
-        student.setCollegeName(request.getCollegeName());
-        student.setDegree(request.getDegree());
-        student.setBranch(request.getBranch());
-        student.setPassingYear(request.getPassingYear());
-        student.setCgpa(request.getCgpa());
-        student.setProfileImage(request.getProfileImage());
+        Student student =
+                getStudent(id);
 
-        student.setUpdatedAt(LocalDateTime.now());
+        student.setFirstName(
+                request.getFirstName());
 
-        Student updatedStudent = studentRepository.save(student);
+        student.setLastName(
+                request.getLastName());
 
-        return studentMapper.toResponse(updatedStudent);
+        student.setMobile(
+                request.getMobile());
+
+        student.setDateOfBirth(
+                request.getDateOfBirth());
+
+        student.setGender(
+                request.getGender());
+
+        student.setCollegeName(
+                request.getCollegeName());
+
+        student.setDegree(
+                request.getDegree());
+
+        student.setBranch(
+                request.getBranch());
+
+        student.setPassingYear(
+                request.getPassingYear());
+
+        student.setCgpa(
+                request.getCgpa());
+
+        student.setProfileImage(
+                request.getProfileImage());
+
+        student.setUpdatedAt(
+                LocalDateTime.now());
+
+        Student updatedStudent =
+                studentRepository.save(student);
+
+        return studentMapper.toResponse(
+                updatedStudent);
     }
+
+
+    // =========================================================
+    // DELETE STUDENT
+    // =========================================================
 
     @Override
     public void deleteStudent(String id) {
 
-        Student student = studentRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Student not found with id: " + id));
+        Student student =
+                getStudent(id);
 
         studentRepository.delete(student);
     }
 
-   
+
+    // =========================================================
+    // STUDENT DASHBOARD
+    // =========================================================
+
     @Override
-    public StudentDashboardResponse getStudentDashboard(String studentId) {
+    public StudentDashboardResponse getStudentDashboard(
+            String studentId) {
 
-        // Fetch Student
-        Student student = studentRepository.findById(studentId)
-                .orElseThrow(() ->
-                        new RuntimeException("Student not found with id : " + studentId));
+        // -----------------------------------------------------
+        // 1. Student
+        // -----------------------------------------------------
 
-        StudentResponse studentResponse = studentMapper.toResponse(student);
+        Student student =
+                getStudent(studentId);
 
-        // Fetch Performance
-        Performance performance = performanceRepository
-                .findByStudentId(studentId)
-                .orElse(null);
+        StudentResponse studentResponse =
+                studentMapper.toResponse(student);
 
-        double attendance = 0.0;
+
+        // -----------------------------------------------------
+        // 2. Performance
+        // -----------------------------------------------------
+
+        Performance performance =
+                performanceRepository
+                        .findByStudentId(studentId)
+                        .orElse(null);
+
+        double attendancePercentage = 0.0;
+
         double assessmentPercentage = 0.0;
+
         double overallPerformance = 0.0;
+
         int currentRank = 0;
+
         String performanceStatus = "";
+
 
         if (performance != null) {
 
-            attendance = performance.getAttendancePercentage() != null
-                    ? performance.getAttendancePercentage()
-                    : 0.0;
+            if (performance.getAttendancePercentage()
+                    != null) {
 
-            assessmentPercentage = performance.getAssessmentPercentage() != null
-                    ? performance.getAssessmentPercentage()
-                    : 0.0;
+                attendancePercentage =
+                        performance
+                                .getAttendancePercentage();
+            }
 
-            overallPerformance = performance.getOverallPercentage() != null
-                    ? performance.getOverallPercentage()
-                    : 0.0;
+            if (performance.getAssessmentPercentage()
+                    != null) {
 
-            currentRank = performance.getRank() != null
-                    ? performance.getRank()
-                    : 0;
+                assessmentPercentage =
+                        performance
+                                .getAssessmentPercentage();
+            }
 
-            performanceStatus = performance.getPerformanceStatus() != null
-                    ? performance.getPerformanceStatus().toString()
-                    : "";
+            if (performance.getOverallPercentage()
+                    != null) {
+
+                overallPerformance =
+                        performance
+                                .getOverallPercentage();
+            }
+
+            if (performance.getRank() != null) {
+
+                currentRank =
+                        performance.getRank();
+            }
+
+            if (performance.getPerformanceStatus()
+                    != null) {
+
+                performanceStatus =
+                        performance
+                                .getPerformanceStatus()
+                                .toString();
+            }
         }
 
-        // Assignment Counts
-        long totalAssignments =
-                assignmentRepository.countByBatchId(student.getBatchId());
 
-        List<String> submittedAssignmentIds =
+        // -----------------------------------------------------
+        // 3. Assignment counts
+        // -----------------------------------------------------
+
+        long totalAssignments = 0;
+
+        long completedAssignments = 0;
+
+        long pendingAssignments = 0;
+
+
+        if (student.getBatchId() != null
+                && !student.getBatchId().isBlank()) {
+
+            totalAssignments =
+                    assignmentRepository
+                            .countByBatchId(
+                                    student.getBatchId());
+        }
+
+
+        completedAssignments =
                 assignmentSubmissionRepository
-                        .findByStudentIdAndBatchId(
+                        .countByStudentIdAndStatus(
                                 studentId,
-                                student.getBatchId())
-                        .stream()
-                        .map(AssignmentSubmission::getAssignmentId)
-                        .filter(java.util.Objects::nonNull)
-                        .distinct()
-                        .toList();
+                                "COMPLETED");
 
-        long completedAssignments = submittedAssignmentIds.size();
 
-        long pendingAssignments =
-                Math.max(0, totalAssignments - completedAssignments);
-        // Assessment Count
+        pendingAssignments =
+                Math.max(
+                        0,
+                        totalAssignments
+                                - completedAssignments);
+
+
+        // -----------------------------------------------------
+        // 4. Assessments
+        // -----------------------------------------------------
+
         long totalAssessments =
-                assessmentRepository.countByStudentId(studentId);
+                assessmentRepository
+                        .countByStudentId(
+                                studentId);
 
-        // Study Material Count
-        long totalStudyMaterials =
-                materialRepository.countByBatchId(student.getBatchId());
 
-        // Latest Notices
+        // -----------------------------------------------------
+        // 5. Study materials
+        // -----------------------------------------------------
+
+        long totalStudyMaterials = 0;
+
+        if (student.getBatchId() != null
+                && !student.getBatchId().isBlank()) {
+
+            totalStudyMaterials =
+                    materialRepository
+                            .countByBatchId(
+                                    student.getBatchId());
+        }
+
+
+        // -----------------------------------------------------
+        // 6. Latest notices
+        // -----------------------------------------------------
+
         List<NoticeResponse> latestNotices =
-                noticeRepository.findAllByOrderByCreatedAtDesc()
+                noticeRepository
+                        .findAllByOrderByCreatedAtDesc()
                         .stream()
+                        .filter(notice ->
+                                notice.getActive() != null
+                                        && notice.getActive())
+                        .filter(notice ->
+                                student.getBatchId() == null
+                                        || notice.getBatchId() == null
+                                        || student.getBatchId()
+                                                .equals(
+                                                        notice.getBatchId()))
                         .limit(5)
                         .map(noticeMapper::toResponse)
                         .toList();
 
-        // Guest Sessions
-        List<GuestSessionResponse> guestSessions =
-                guestSessionRepository.findByBatchIdAndActiveTrue(student.getBatchId())
-                        .stream()
-                        .map(guestSessionMapper::toResponse)
-                        .toList();
 
-        // Upcoming Interview
+        // -----------------------------------------------------
+        // 7. Guest sessions
+        // -----------------------------------------------------
+
+        List<GuestSessionResponse> guestSessions =
+                List.of();
+
+        if (student.getBatchId() != null
+                && !student.getBatchId().isBlank()) {
+
+            guestSessions =
+                    guestSessionRepository
+                            .findByBatchIdAndActiveTrue(
+                                    student.getBatchId())
+                            .stream()
+                            .map(
+                                    guestSessionMapper
+                                            ::toResponse)
+                            .toList();
+        }
+
+
+        // -----------------------------------------------------
+        // 8. Latest / current interview
+        // -----------------------------------------------------
+
         InterviewResponse interviewResponse =
-                interviewRepository.findByStudentId(studentId)
-                        .map(interviewMapper::toResponse)
-                        .orElse(null);
-        // Dashboard Response
+                getLatestInterview(studentId);
+
+
+        // -----------------------------------------------------
+        // 9. Build dashboard
+        // -----------------------------------------------------
+
         return StudentDashboardResponse.builder()
 
                 .student(studentResponse)
 
-                .attendancePercentage(attendance)
+                .attendancePercentage(
+                        attendancePercentage)
 
-                .totalAssignments((int) totalAssignments)
+                .totalAssignments(
+                        toInt(totalAssignments))
 
-                .completedAssignments((int) completedAssignments)
+                .completedAssignments(
+                        toInt(completedAssignments))
 
-                .pendingAssignments((int) pendingAssignments)
+                .pendingAssignments(
+                        toInt(pendingAssignments))
 
-                .totalAssessments((int) totalAssessments)
+                .totalAssessments(
+                        toInt(totalAssessments))
 
-                .assessmentPercentage(assessmentPercentage)
+                .assessmentPercentage(
+                        assessmentPercentage)
 
-                .overallPerformance(overallPerformance)
+                .overallPerformance(
+                        overallPerformance)
 
-                .currentRank(currentRank)
+                .currentRank(
+                        currentRank)
 
-                .performanceStatus(performanceStatus)
+                .performanceStatus(
+                        performanceStatus)
 
-                .totalStudyMaterials((int) totalStudyMaterials)
+                .totalStudyMaterials(
+                        toInt(totalStudyMaterials))
 
-                .latestNotices(latestNotices)
+                .latestNotices(
+                        latestNotices)
 
-                .guestSessions(guestSessions)
+                .guestSessions(
+                        guestSessions)
 
-                .upcomingInterview(interviewResponse)
+                .upcomingInterview(
+                        interviewResponse)
 
                 .build();
-    
+    }
+
+
+    // =========================================================
+    // GET STUDENT
+    // =========================================================
+
+    private Student getStudent(
+            String studentId) {
+
+        if (studentId == null
+                || studentId.isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Student ID is required");
+        }
+
+        return studentRepository
+                .findById(studentId)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Student not found with id: "
+                                        + studentId));
+    }
+
+
+    // =========================================================
+    // GET LATEST INTERVIEW
+    // =========================================================
+
+    private InterviewResponse getLatestInterview(
+            String studentId) {
+
+        List<Interview> interviews =
+                interviewRepository
+                        .findByStudentId(studentId);
+
+        if (interviews == null
+                || interviews.isEmpty()) {
+
+            return null;
+        }
+
+        Interview latestInterview =
+                interviews.stream()
+                        .max(
+                                (first, second) ->
+                                        compareDate(
+                                                first.getUpdatedAt(),
+                                                second.getUpdatedAt()))
+                        .orElse(null);
+
+        return interviewMapper.toResponse(
+                latestInterview);
+    }
+
+
+    // =========================================================
+    // SAFE INTEGER CONVERSION
+    // =========================================================
+
+    private int toInt(long value) {
+
+        if (value > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+
+        return (int) value;
+    }
+
+
+    // =========================================================
+    // COMPARE LOCAL DATE TIME
+    // =========================================================
+
+    private int compareDate(
+            LocalDateTime first,
+            LocalDateTime second) {
+
+        if (first == null
+                && second == null) {
+
+            return 0;
+        }
+
+        if (first == null) {
+            return -1;
+        }
+
+        if (second == null) {
+            return 1;
+        }
+
+        return first.compareTo(second);
     }
 }
