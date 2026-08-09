@@ -45,8 +45,10 @@ public class Student {
 
     // Account
     private String password;
-
     private Boolean active;
+
+    // Selection Process
+    private SelectionStatus selectionStatus;
 
     // Audit Fields
     private LocalDateTime createdAt;

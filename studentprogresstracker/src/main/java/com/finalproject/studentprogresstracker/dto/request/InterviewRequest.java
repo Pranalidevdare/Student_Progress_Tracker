@@ -39,10 +39,8 @@ public class InterviewRequest {
 
     private Integer behaviourMarks;
 
-    private Integer totalMarks;
-
+   
     private String remarks;
 
-    private String status;
 
 }
