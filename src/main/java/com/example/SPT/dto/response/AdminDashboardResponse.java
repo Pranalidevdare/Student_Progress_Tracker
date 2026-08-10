@@ -19,6 +19,10 @@ public class AdminDashboardResponse {
     private long totalSoftSkillTrainers;
 
     private long totalAdmins;
+    
+    private long totalTrainers;
+
+    private long totalApplications;
 
     private long totalUsers;
 

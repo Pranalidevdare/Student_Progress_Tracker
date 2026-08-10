@@ -20,6 +20,7 @@ import com.example.SPT.dto.response.AptitudeTestScheduleResponse;
 import com.example.SPT.dto.response.BatchResponse;
 import com.example.SPT.dto.response.StudentResponse;
 import com.example.SPT.dto.response.UserResponse;
+import com.example.SPT.service.AdminDashboardService;
 import com.example.SPT.service.AdminService;
 import com.example.SPT.service.AptitudeTestScheduleService;
 
@@ -33,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 public class AdminController {
 
     private final AdminService adminService;
+    private final AdminDashboardService adminDashboardService;
     
     private final AptitudeTestScheduleService aptitudeTestScheduleService;
 
@@ -43,8 +45,9 @@ public class AdminController {
     @GetMapping("/dashboard")
     public ResponseEntity<AdminDashboardResponse> getDashboard() {
 
-        return ResponseEntity.ok(adminService.getDashboard());
-
+        return ResponseEntity.ok(
+                adminDashboardService.getDashboard()
+        );
     }
     
     @GetMapping("/students")

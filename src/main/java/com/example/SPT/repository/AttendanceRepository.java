@@ -19,5 +19,7 @@ public interface AttendanceRepository extends MongoRepository<Attendance, String
     long countByTrainerIdAndAttendanceDate(
             String trainerId,
             LocalDate attendanceDate);
+    
+    long countByAttendanceDate(LocalDate attendanceDate);
 
 }

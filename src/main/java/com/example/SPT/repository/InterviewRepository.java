@@ -33,5 +33,10 @@ public interface InterviewRepository
 
     Optional<Interview> findTopByStudentIdOrderByUpdatedAtDesc(
             String studentId);
+    
+    long countByInterviewTypeAndStatus(
+            String interviewType,
+            String status
+    );
 
 }
