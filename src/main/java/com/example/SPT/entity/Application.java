@@ -24,6 +24,9 @@ public class Application {
     private String id;
 
     // Application Details
+    
+    @Indexed(unique = true)
+    private String userId;
 
     @Indexed(unique = true)
     private String applicationNumber;

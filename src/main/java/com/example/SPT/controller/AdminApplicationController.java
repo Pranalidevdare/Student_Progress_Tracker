@@ -2,12 +2,16 @@ package com.example.SPT.controller;
 
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,11 +26,12 @@ import com.example.SPT.service.ApplicationService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-
+import com.example.SPT.dto.response.StudentResponse;
 @RestController
 @RequestMapping("/api/admin/applications")
 @RequiredArgsConstructor
 @Validated
+@CrossOrigin(origins = "*")
 public class AdminApplicationController {
 
     private final ApplicationService applicationService;
@@ -142,5 +147,20 @@ public class AdminApplicationController {
         applicationService.deleteApplication(id);
 
         return ResponseEntity.noContent().build();
+    }
+    
+ // CREATE STUDENT FROM SELECTED APPLICATION
+
+    @PostMapping("/{id}/create-student")
+    public ResponseEntity<StudentResponse> createStudentFromSelectedApplication(
+            @PathVariable String id) {
+
+        StudentResponse response =
+                applicationService
+                        .createStudentFromSelectedApplication(id);
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(response);
     }
 }

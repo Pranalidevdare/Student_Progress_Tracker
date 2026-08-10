@@ -25,6 +25,8 @@ public interface ApplicationRepository extends MongoRepository<Application, Stri
     Optional<Application> findByEmail(String email);
 
     Optional<Application> findByApplicationNumber(String applicationNumber);
+    
+    Optional<Application> findByUserId(String userId);
 
     // Dashboard
 

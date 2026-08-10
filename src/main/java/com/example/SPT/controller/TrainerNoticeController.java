@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/trainer/notices")
 @RequiredArgsConstructor
 @Validated
+@CrossOrigin(origins = "*")
 public class TrainerNoticeController {
 
     private final NoticeService noticeService;

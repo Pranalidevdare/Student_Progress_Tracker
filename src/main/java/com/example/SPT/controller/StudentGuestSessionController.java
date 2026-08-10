@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/student/guest-sessions")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 public class StudentGuestSessionController {
 
     private final GuestSessionService guestSessionService;
