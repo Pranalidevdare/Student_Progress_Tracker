@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/admin/aptitude")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 public class AdminAptitudeScheduleController {
 
     private final AptitudeScheduleService

@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/student/notices")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 public class StudentNoticeController {
 
     private final NoticeService noticeService;

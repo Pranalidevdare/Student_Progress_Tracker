@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/student/toppers")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 public class StudentTopperController {
 
     private final TopperService topperService;

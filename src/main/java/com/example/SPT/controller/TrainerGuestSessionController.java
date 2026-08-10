@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/trainer/guest-sessions")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 public class TrainerGuestSessionController {
 
     private final GuestSessionService guestSessionService;
