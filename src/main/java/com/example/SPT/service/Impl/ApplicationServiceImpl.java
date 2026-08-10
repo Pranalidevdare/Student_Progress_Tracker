@@ -20,7 +20,11 @@ import com.example.SPT.service.ApplicationService;
 import com.example.SPT.service.SequenceGeneratorService;
 
 import lombok.RequiredArgsConstructor;
-
+import com.example.SPT.dto.response.StudentResponse;
+import com.example.SPT.entity.Student;
+import com.example.SPT.entity.SelectionStatus;
+import com.example.SPT.repository.StudentRepository;
+import com.example.SPT.mapper.StudentMapper;
 @Service
 @RequiredArgsConstructor
 public class ApplicationServiceImpl implements ApplicationService {
@@ -30,6 +34,10 @@ public class ApplicationServiceImpl implements ApplicationService {
     private static final String APPLICATION_SEQUENCE = "application_sequence";
     
     private final SequenceGeneratorService sequenceGeneratorService;
+    
+    private final StudentRepository studentRepository;
+
+    private final StudentMapper studentMapper;
     
     private void validateApplication(ApplicationCreateRequest request) {
 
@@ -261,6 +269,122 @@ public class ApplicationServiceImpl implements ApplicationService {
                 applicationRepository.save(application);
 
         return mapToResponse(updatedApplication);
+    }
+    
+    @Override
+    public StudentResponse createStudentFromSelectedApplication(
+            String applicationId) {
+
+        // 1. Find application
+        Application application =
+                getApplication(applicationId);
+
+        // 2. Application must be finally selected
+        if (application.getStatus()
+                != ApplicationStatus.SELECTED) {
+
+            throw new IllegalStateException(
+                    "Student cannot be created. "
+                    + "Application is not in SELECTED status. "
+                    + "Current status: "
+                    + application.getStatus());
+        }
+
+        // 3. Prevent duplicate student
+        if (studentRepository.existsByEmail(
+                application.getEmail())) {
+
+            throw new ResourceAlreadyExistsException(
+                    "Student already exists with email : "
+                            + application.getEmail());
+        }
+
+        // 4. Create Student from selected application
+        Student student = new Student();
+
+        student.setFirstName(
+                extractFirstName(application.getFullName()));
+
+        student.setLastName(
+                extractLastName(application.getFullName()));
+
+        student.setEmail(
+                application.getEmail());
+
+        student.setMobile(
+                application.getMobile());
+
+        student.setCollegeName(
+                application.getCollegeName());
+
+        student.setBranch(
+                application.getBranch());
+
+        student.setActive(true);
+
+        /*
+         * Candidate has completed the selection process.
+         * Therefore, the candidate becomes a student.
+         */
+        student.setSelectionStatus(
+                SelectionStatus.SELECTED);
+
+        LocalDateTime now =
+                LocalDateTime.now();
+
+        student.setCreatedAt(now);
+        student.setUpdatedAt(now);
+
+        // 5. Save student
+        Student savedStudent =
+                studentRepository.save(student);
+
+        // 6. Update application status
+        application.setStatus(
+                ApplicationStatus.BATCH_ASSIGNED);
+
+        application.setUpdatedAt(now);
+
+        applicationRepository.save(application);
+
+        // 7. Return student
+        return studentMapper.toResponse(
+                savedStudent);
+    }
+    
+    
+    private String extractFirstName(String fullName) {
+
+        if (fullName == null || fullName.isBlank()) {
+            return "";
+        }
+
+        String name = fullName.trim();
+
+        int spaceIndex = name.indexOf(" ");
+
+        if (spaceIndex == -1) {
+            return name;
+        }
+
+        return name.substring(0, spaceIndex);
+    }
+    
+    private String extractLastName(String fullName) {
+
+        if (fullName == null || fullName.isBlank()) {
+            return "";
+        }
+
+        String name = fullName.trim();
+
+        int spaceIndex = name.indexOf(" ");
+
+        if (spaceIndex == -1) {
+            return "";
+        }
+
+        return name.substring(spaceIndex + 1).trim();
     }
     
     private Application getApplication(String id) {

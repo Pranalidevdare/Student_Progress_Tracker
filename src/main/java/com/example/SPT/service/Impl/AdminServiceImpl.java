@@ -29,12 +29,14 @@ import com.example.SPT.repository.BatchRepository;
 import com.example.SPT.repository.UserRepository;
 import com.example.SPT.service.AdminService;
 
+
 @Service
 public class AdminServiceImpl implements AdminService {
 
     private final UserRepository userRepository;
     private final BatchRepository batchRepository;
     private final PasswordEncoder passwordEncoder;
+    
 
     public AdminServiceImpl(UserRepository userRepository,
             BatchRepository batchRepository,

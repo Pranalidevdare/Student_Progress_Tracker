@@ -6,6 +6,7 @@ import com.example.SPT.dto.request.ApplicationCreateRequest;
 import com.example.SPT.dto.request.ApplicationStatusUpdateRequest;
 import com.example.SPT.dto.request.ApplicationUpdateRequest;
 import com.example.SPT.dto.response.ApplicationResponse;
+import com.example.SPT.dto.response.StudentResponse;
 import com.example.SPT.enums.ApplicationStatus;
 
 public interface ApplicationService {
@@ -34,4 +35,5 @@ public interface ApplicationService {
     List<ApplicationResponse> getApplicationsByStatus(
             ApplicationStatus status);
 
+    StudentResponse createStudentFromSelectedApplication(String applicationId);
 }

@@ -14,15 +14,15 @@ import com.example.SPT.dto.request.AptitudeAnswerRequest;
 import com.example.SPT.dto.request.AptitudeSubmitRequest;
 import com.example.SPT.dto.response.AptitudeQuestionResponse;
 import com.example.SPT.dto.response.AptitudeResultResponse;
+import com.example.SPT.entity.Application;
 import com.example.SPT.entity.AptitudeQuestion;
 import com.example.SPT.entity.AptitudeResult;
-import com.example.SPT.entity.SelectionStatus;
-import com.example.SPT.entity.Student;
+import com.example.SPT.enums.ApplicationStatus;
 import com.example.SPT.mapper.AptitudeQuestionMapper;
 import com.example.SPT.mapper.AptitudeResultMapper;
+import com.example.SPT.repository.ApplicationRepository;
 import com.example.SPT.repository.AptitudeQuestionRepository;
 import com.example.SPT.repository.AptitudeResultRepository;
-import com.example.SPT.repository.StudentRepository;
 import com.example.SPT.service.AptitudeService;
 
 import lombok.RequiredArgsConstructor;
@@ -43,7 +43,7 @@ public class AptitudeServiceImpl implements AptitudeService {
 
     private final AptitudeQuestionRepository aptitudeQuestionRepository;
 
-    private final StudentRepository studentRepository;
+    private final ApplicationRepository applicationRepository;
 
     private final AptitudeResultRepository aptitudeResultRepository;
 
@@ -75,57 +75,42 @@ public class AptitudeServiceImpl implements AptitudeService {
     public AptitudeResultResponse startAptitude(
             String candidateId) {
 
-        if (candidateId == null || candidateId.isBlank()) {
+        validateCandidateId(candidateId);
 
-            throw new IllegalArgumentException(
-                    "Candidate ID is required");
-        }
-
-        Student student =
-                studentRepository.findById(candidateId)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Candidate not found with id: "
-                                                + candidateId));
+        Application application =
+                getApplication(candidateId);
 
 
         // -----------------------------------------------------
-        // Check selection status
+        // Check application status
         // -----------------------------------------------------
 
-        SelectionStatus selectionStatus =
-                student.getSelectionStatus();
-
-        if (selectionStatus == null) {
+        if (application.getStatus()
+                != ApplicationStatus.APTITUDE_SCHEDULED) {
 
             throw new IllegalStateException(
-                    "Candidate selection status is not available");
+                    "Candidate is not eligible to start aptitude test. "
+                    + "Current application status: "
+                    + application.getStatus());
         }
 
 
         // -----------------------------------------------------
-        // If aptitude is already in progress
+        // Check existing IN_PROGRESS attempt
         // -----------------------------------------------------
 
-        if (selectionStatus
-                == SelectionStatus.APTITUDE_IN_PROGRESS) {
+        AptitudeResult existingResult =
+                aptitudeResultRepository
+                        .findTopByCandidateIdAndStatusOrderByCreatedAtDesc(
+                                candidateId,
+                                STATUS_IN_PROGRESS)
+                        .orElse(null);
 
-            AptitudeResult existingResult =
-                    aptitudeResultRepository
-                            .findTopByCandidateIdAndStatusOrderByCreatedAtDesc(
-                                    candidateId,
-                                    STATUS_IN_PROGRESS)
-                            .orElseThrow(() ->
-                                    new IllegalStateException(
-                                            "Aptitude test is marked as "
-                                                    + "in progress but no active "
-                                                    + "attempt was found"));
 
-            // ---------------------------------------------------------
-            // Check whether the existing aptitude attempt has expired
-            // ---------------------------------------------------------
+        if (existingResult != null) {
 
-            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime now =
+                    LocalDateTime.now();
 
             if (existingResult.getStartedAt() == null) {
 
@@ -133,16 +118,22 @@ public class AptitudeServiceImpl implements AptitudeService {
                         "Aptitude test start time is missing");
             }
 
+
             Duration elapsedTime =
                     Duration.between(
                             existingResult.getStartedAt(),
                             now);
 
+
+            // -------------------------------------------------
+            // Existing attempt expired
+            // -------------------------------------------------
+
             if (elapsedTime.toMinutes()
                     >= APTITUDE_DURATION_MINUTES) {
 
-                // Mark aptitude attempt as failed
-                existingResult.setStatus(STATUS_FAIL);
+                existingResult.setStatus(
+                        STATUS_FAIL);
 
                 existingResult.setSubmittedAt(now);
 
@@ -150,40 +141,30 @@ public class AptitudeServiceImpl implements AptitudeService {
 
                 existingResult.setUpdatedAt(now);
 
-                aptitudeResultRepository.save(existingResult);
+                aptitudeResultRepository.save(
+                        existingResult);
 
-                // Candidate is rejected because aptitude expired
-                student.setSelectionStatus(
-                        SelectionStatus.REJECTED);
 
-                student.setUpdatedAt(now);
+                application.setStatus(
+                        ApplicationStatus.APTITUDE_FAILED);
 
-                studentRepository.save(student);
+                application.setUpdatedAt(now);
+
+                applicationRepository.save(
+                        application);
+
 
                 throw new IllegalStateException(
                         "Aptitude test time has expired");
             }
 
-            // ---------------------------------------------------------
-            // Still within the allowed time
-            // ---------------------------------------------------------
+
+            // -------------------------------------------------
+            // Existing attempt still active
+            // -------------------------------------------------
 
             return aptitudeResultMapper
                     .toResponse(existingResult);
-        }
-
-
-        // -----------------------------------------------------
-        // Candidate must be pending
-        // -----------------------------------------------------
-
-        if (selectionStatus
-                != SelectionStatus.APTITUDE_PENDING) {
-
-            throw new IllegalStateException(
-                    "Candidate is not eligible to start aptitude test. "
-                            + "Current status: "
-                            + selectionStatus);
         }
 
 
@@ -194,6 +175,7 @@ public class AptitudeServiceImpl implements AptitudeService {
         List<AptitudeQuestion> questions =
                 aptitudeQuestionRepository
                         .findByActiveTrue();
+
 
         if (questions.isEmpty()) {
 
@@ -227,7 +209,7 @@ public class AptitudeServiceImpl implements AptitudeService {
 
 
         // -----------------------------------------------------
-        // Real start time
+        // Start time
         // -----------------------------------------------------
 
         LocalDateTime now =
@@ -235,7 +217,7 @@ public class AptitudeServiceImpl implements AptitudeService {
 
 
         // -----------------------------------------------------
-        // Create IN_PROGRESS result
+        // Create aptitude result
         // -----------------------------------------------------
 
         AptitudeResult result =
@@ -244,7 +226,7 @@ public class AptitudeServiceImpl implements AptitudeService {
                         .candidateId(candidateId)
 
                         .candidateName(
-                                buildStudentName(student))
+                                application.getFullName())
 
                         .assessmentId(
                                 ASSESSMENT_TYPE)
@@ -290,18 +272,6 @@ public class AptitudeServiceImpl implements AptitudeService {
                 aptitudeResultRepository.save(result);
 
 
-        // -----------------------------------------------------
-        // Update candidate status
-        // -----------------------------------------------------
-
-        student.setSelectionStatus(
-                SelectionStatus.APTITUDE_IN_PROGRESS);
-
-        student.setUpdatedAt(now);
-
-        studentRepository.save(student);
-
-
         return aptitudeResultMapper
                 .toResponse(savedResult);
     }
@@ -315,6 +285,7 @@ public class AptitudeServiceImpl implements AptitudeService {
     public AptitudeResultResponse submitQuiz(
             AptitudeSubmitRequest request) {
 
+
         // -----------------------------------------------------
         // 1. Validate request
         // -----------------------------------------------------
@@ -325,12 +296,10 @@ public class AptitudeServiceImpl implements AptitudeService {
                     "Aptitude submission request cannot be null");
         }
 
-        if (request.getCandidateId() == null
-                || request.getCandidateId().isBlank()) {
 
-            throw new IllegalArgumentException(
-                    "Candidate ID is required");
-        }
+        validateCandidateId(
+                request.getCandidateId());
+
 
         if (request.getAssessmentId() == null
                 || request.getAssessmentId().isBlank()) {
@@ -341,34 +310,16 @@ public class AptitudeServiceImpl implements AptitudeService {
 
 
         // -----------------------------------------------------
-        // 2. Find candidate
+        // 2. Find application
         // -----------------------------------------------------
 
-        Student student =
-                studentRepository.findById(
-                        request.getCandidateId())
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Candidate not found with id: "
-                                                + request.getCandidateId()));
+        Application application =
+                getApplication(
+                        request.getCandidateId());
 
 
         // -----------------------------------------------------
-        // 3. Candidate must be IN_PROGRESS
-        // -----------------------------------------------------
-
-        if (student.getSelectionStatus()
-                != SelectionStatus.APTITUDE_IN_PROGRESS) {
-
-            throw new IllegalStateException(
-                    "Candidate has not started the aptitude test. "
-                            + "Current status: "
-                            + student.getSelectionStatus());
-        }
-
-
-        // -----------------------------------------------------
-        // 4. Find current aptitude attempt
+        // 3. Find current aptitude attempt
         // -----------------------------------------------------
 
         AptitudeResult result =
@@ -382,16 +333,25 @@ public class AptitudeServiceImpl implements AptitudeService {
 
 
         // -----------------------------------------------------
-        // 5. Check aptitude timer
+        // 4. Check timer
         // -----------------------------------------------------
 
         LocalDateTime now =
                 LocalDateTime.now();
 
+
+        if (result.getStartedAt() == null) {
+
+            throw new IllegalStateException(
+                    "Aptitude test start time is missing");
+        }
+
+
         Duration elapsedTime =
                 Duration.between(
                         result.getStartedAt(),
                         now);
+
 
         if (elapsedTime.toMinutes()
                 >= APTITUDE_DURATION_MINUTES) {
@@ -407,12 +367,14 @@ public class AptitudeServiceImpl implements AptitudeService {
 
             aptitudeResultRepository.save(result);
 
-            student.setSelectionStatus(
-                    SelectionStatus.REJECTED);
 
-            student.setUpdatedAt(now);
+            application.setStatus(
+                    ApplicationStatus.APTITUDE_FAILED);
 
-            studentRepository.save(student);
+            application.setUpdatedAt(now);
+
+            applicationRepository.save(application);
+
 
             throw new IllegalStateException(
                     "Aptitude test time has expired");
@@ -420,12 +382,13 @@ public class AptitudeServiceImpl implements AptitudeService {
 
 
         // -----------------------------------------------------
-        // 6. Get active questions
+        // 5. Get active questions
         // -----------------------------------------------------
 
         List<AptitudeQuestion> questions =
                 aptitudeQuestionRepository
                         .findByActiveTrue();
+
 
         if (questions.isEmpty()) {
 
@@ -435,7 +398,7 @@ public class AptitudeServiceImpl implements AptitudeService {
 
 
         // -----------------------------------------------------
-        // 7. Create question map
+        // 6. Create question map
         // -----------------------------------------------------
 
         Map<String, AptitudeQuestion> questionMap =
@@ -446,7 +409,7 @@ public class AptitudeServiceImpl implements AptitudeService {
 
 
         // -----------------------------------------------------
-        // 8. Get submitted answers
+        // 7. Get submitted answers
         // -----------------------------------------------------
 
         List<AptitudeAnswerRequest> answers =
@@ -456,11 +419,12 @@ public class AptitudeServiceImpl implements AptitudeService {
 
 
         // -----------------------------------------------------
-        // 9. Prevent duplicate answers
+        // 8. Evaluate answers
         // -----------------------------------------------------
 
         Set<String> answeredQuestionIds =
                 new HashSet<>();
+
 
         int attemptedQuestions = 0;
 
@@ -472,7 +436,7 @@ public class AptitudeServiceImpl implements AptitudeService {
 
 
         // -----------------------------------------------------
-        // 10. Calculate total marks
+        // 9. Calculate total marks
         // -----------------------------------------------------
 
         int totalMarks = 0;
@@ -484,6 +448,7 @@ public class AptitudeServiceImpl implements AptitudeService {
                             ? 1
                             : question.getMarks();
 
+
             if (questionMarks < 0) {
 
                 throw new IllegalStateException(
@@ -491,12 +456,13 @@ public class AptitudeServiceImpl implements AptitudeService {
                                 + question.getId());
             }
 
+
             totalMarks += questionMarks;
         }
 
 
         // -----------------------------------------------------
-        // 11. Evaluate answers
+        // 10. Evaluate submitted answers
         // -----------------------------------------------------
 
         for (AptitudeAnswerRequest answer : answers) {
@@ -508,11 +474,12 @@ public class AptitudeServiceImpl implements AptitudeService {
                 continue;
             }
 
+
             String questionId =
                     answer.getQuestionId();
 
 
-            // Duplicate answer
+            // Prevent duplicate answers
             if (!answeredQuestionIds.add(questionId)) {
 
                 throw new IllegalArgumentException(
@@ -521,9 +488,10 @@ public class AptitudeServiceImpl implements AptitudeService {
             }
 
 
-            // Validate question
+            // Find question
             AptitudeQuestion question =
                     questionMap.get(questionId);
+
 
             if (question == null) {
 
@@ -537,18 +505,20 @@ public class AptitudeServiceImpl implements AptitudeService {
                     answer.getSelectedAnswer();
 
 
-            // Blank answer = unattempted
+            // Blank answer
             if (selectedAnswer == null
                     || selectedAnswer.isBlank()) {
 
                 continue;
             }
 
+
             attemptedQuestions++;
 
 
             String correctAnswer =
                     question.getCorrectAnswer();
+
 
             int questionMarks =
                     question.getMarks() == null
@@ -579,21 +549,24 @@ public class AptitudeServiceImpl implements AptitudeService {
 
 
         // -----------------------------------------------------
-        // 12. Calculate unattempted
+        // 11. Calculate unattempted
         // -----------------------------------------------------
 
         int totalQuestions =
                 questions.size();
 
+
         int unattemptedQuestions =
-                totalQuestions - attemptedQuestions;
+                totalQuestions
+                        - attemptedQuestions;
 
 
         // -----------------------------------------------------
-        // 13. Calculate percentage
+        // 12. Calculate percentage
         // -----------------------------------------------------
 
         double percentage = 0.0;
+
 
         if (totalMarks > 0) {
 
@@ -603,6 +576,7 @@ public class AptitudeServiceImpl implements AptitudeService {
                             * 100.0;
         }
 
+
         percentage =
                 Math.round(
                         percentage * 100.0)
@@ -610,23 +584,17 @@ public class AptitudeServiceImpl implements AptitudeService {
 
 
         // -----------------------------------------------------
-        // 14. Determine PASS / FAIL
+        // 13. Determine result
         // -----------------------------------------------------
 
-        String status;
-
-        if (percentage >= PASSING_PERCENTAGE) {
-
-            status = STATUS_PASS;
-
-        } else {
-
-            status = STATUS_FAIL;
-        }
+        String status =
+                percentage >= PASSING_PERCENTAGE
+                        ? STATUS_PASS
+                        : STATUS_FAIL;
 
 
         // -----------------------------------------------------
-        // 15. Update SAME aptitude result
+        // 14. Update aptitude result
         // -----------------------------------------------------
 
         result.setAssessmentId(
@@ -662,9 +630,6 @@ public class AptitudeServiceImpl implements AptitudeService {
         result.setStatus(
                 status);
 
-        /*
-         * Do NOT change startedAt.
-         */
         result.setSubmittedAt(now);
 
         result.setEvaluatedAt(now);
@@ -673,7 +638,7 @@ public class AptitudeServiceImpl implements AptitudeService {
 
 
         // -----------------------------------------------------
-        // 16. Save result
+        // 15. Save aptitude result
         // -----------------------------------------------------
 
         AptitudeResult savedResult =
@@ -682,27 +647,28 @@ public class AptitudeServiceImpl implements AptitudeService {
 
 
         // -----------------------------------------------------
-        // 17. Update selection status
+        // 16. Update APPLICATION status
         // -----------------------------------------------------
 
         if (STATUS_PASS.equals(status)) {
 
-            student.setSelectionStatus(
-                    SelectionStatus.TECHNICAL_PENDING);
+            application.setStatus(
+                    ApplicationStatus.APTITUDE_PASSED);
 
         } else {
 
-            student.setSelectionStatus(
-                    SelectionStatus.REJECTED);
+            application.setStatus(
+                    ApplicationStatus.APTITUDE_FAILED);
         }
 
-        student.setUpdatedAt(now);
 
-        studentRepository.save(student);
+        application.setUpdatedAt(now);
+
+        applicationRepository.save(application);
 
 
         // -----------------------------------------------------
-        // 18. Return result
+        // 17. Return result
         // -----------------------------------------------------
 
         return aptitudeResultMapper
@@ -718,12 +684,12 @@ public class AptitudeServiceImpl implements AptitudeService {
     public AptitudeResultResponse getLatestResult(
             String candidateId) {
 
-        if (candidateId == null
-                || candidateId.isBlank()) {
+        validateCandidateId(candidateId);
 
-            throw new IllegalArgumentException(
-                    "Candidate ID is required");
-        }
+
+        // Make sure application exists
+        getApplication(candidateId);
+
 
         AptitudeResult result =
                 aptitudeResultRepository
@@ -734,33 +700,40 @@ public class AptitudeServiceImpl implements AptitudeService {
                                         "Aptitude result not found for candidate: "
                                                 + candidateId));
 
+
         return aptitudeResultMapper
                 .toResponse(result);
     }
 
 
     // =========================================================
-    // BUILD STUDENT NAME
+    // GET APPLICATION
     // =========================================================
 
-    private String buildStudentName(
-            Student student) {
+    private Application getApplication(
+            String candidateId) {
 
-        String firstName =
-                student.getFirstName() == null
-                        ? ""
-                        : student.getFirstName().trim();
+        return applicationRepository
+                .findById(candidateId)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Application not found with id: "
+                                        + candidateId));
+    }
 
-        String lastName =
-                student.getLastName() == null
-                        ? ""
-                        : student.getLastName().trim();
 
-        String fullName =
-                (firstName + " " + lastName).trim();
+    // =========================================================
+    // VALIDATE CANDIDATE ID
+    // =========================================================
 
-        return fullName.isBlank()
-                ? null
-                : fullName;
+    private void validateCandidateId(
+            String candidateId) {
+
+        if (candidateId == null
+                || candidateId.isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Candidate ID is required");
+        }
     }
 }
