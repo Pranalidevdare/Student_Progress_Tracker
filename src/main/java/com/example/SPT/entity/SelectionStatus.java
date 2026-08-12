@@ -1,0 +1,22 @@
+package com.example.SPT.entity;
+
+public enum SelectionStatus {
+
+    APTITUDE_PENDING,
+
+    APTITUDE_IN_PROGRESS,
+
+    DOCUMENTATION_PENDING,
+
+    DOCUMENT_VERIFICATION_PENDING,
+
+    TECHNICAL_PENDING,
+
+    SOFT_SKILL_PENDING,
+
+    HOME_VISIT_PENDING,
+
+    SELECTED,
+
+    REJECTED
+}
