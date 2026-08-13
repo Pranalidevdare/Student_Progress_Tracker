@@ -27,69 +27,7 @@ export default function SelectionStatusPage() {
     setNotFoundError('');
     setCandidate(null);
 
-    // Built-in candidate pool fallback
-    const defaultCandidatesPool = [
-      {
-        id: 'app_jyoti',
-        applicationNumber: 'APP20268482',
-        fullName: 'Jyoti Satkar',
-        email: 'dattatraysatkar3@gmail.com',
-        mobile: '8482860447',
-        collegeName: 'ISBM COE',
-        branch: 'Computer Engineering (comp)',
-        yearOfStudy: '4th year',
-        familyIncome: 360000,
-        status: 'ELIGIBLE_FOR_APTITUDE'
-      },
-      {
-        id: 'app_1',
-        applicationNumber: 'APP2026001',
-        fullName: 'Siddharth Varma',
-        email: 'siddharth.varma@example.com',
-        mobile: '9123456780',
-        collegeName: 'COEP Pune',
-        branch: 'Computer Science',
-        yearOfStudy: 'Final Year',
-        familyIncome: 250000,
-        status: 'SUBMITTED'
-      },
-      {
-        id: 'app_2',
-        applicationNumber: 'APP2026002',
-        fullName: 'Neha Kulkarni',
-        email: 'neha.kulkarni@example.com',
-        mobile: '9123456781',
-        collegeName: 'VJTI Mumbai',
-        branch: 'Information Technology',
-        yearOfStudy: 'Final Year',
-        familyIncome: 280000,
-        status: 'APTITUDE_SCHEDULED'
-      },
-      {
-        id: 'app_3',
-        applicationNumber: 'APP2026003',
-        fullName: 'Rohan Mehta',
-        email: 'rohan.mehta@example.com',
-        mobile: '9123456782',
-        collegeName: 'MIT Manipal',
-        branch: 'Computer Science',
-        yearOfStudy: 'Passed Out',
-        familyIncome: 320000,
-        status: 'DOCUMENTS_SUBMITTED'
-      },
-      {
-        id: 'app_4',
-        applicationNumber: 'APP7076',
-        fullName: 'Rahul Sharma',
-        email: 'rahul.sharma@example.com',
-        mobile: '9876543210',
-        collegeName: 'ISBM COE',
-        branch: 'Computer Engineering',
-        yearOfStudy: 'Final Year',
-        familyIncome: 350000,
-        status: 'DOCUMENTS_VERIFIED'
-      }
-    ];
+    // Only check locally saved applications (no hardcoded demo data)
 
     // First check local registered applications in localStorage
     let foundApp = null;
@@ -98,7 +36,7 @@ export default function SelectionStatusPage() {
       let localApps = [];
       if (rawLocal) localApps = JSON.parse(rawLocal);
       
-      const allPool = [...localApps, ...defaultCandidatesPool];
+      const allPool = [...localApps];
       foundApp = allPool.find(a => 
         (a.applicationNumber && a.applicationNumber.toLowerCase() === query.toLowerCase()) ||
         (a.email && a.email.toLowerCase() === query.toLowerCase()) ||
@@ -169,13 +107,13 @@ export default function SelectionStatusPage() {
       font-family: 'Hindi', sans-serif;
       font-size: 22px;
       font-weight: 700;
-      color: #b91c1c;
+      color: var(--primary-dark);
       text-align: right;
       line-height: 1.3;
     }
     .red-line {
       height: 4px;
-      background: linear-gradient(90deg, #dc2626, #991b1b);
+      background: linear-gradient(90deg, var(--primary), var(--primary-dark));
       margin-bottom: 30px;
       border-radius: 2px;
     }
@@ -209,7 +147,7 @@ export default function SelectionStatusPage() {
     .program-details {
       background: #f8fafc;
       border: 1px solid #e2e8f0;
-      border-left: 4px solid #dc2626;
+      border-left: 4px solid var(--primary);
       padding: 16px 20px;
       margin: 25px 0;
       border-radius: 6px;
@@ -244,7 +182,7 @@ export default function SelectionStatusPage() {
     <tr>
       <td style="vertical-align: middle;">
         <div style="display: flex; align-items: center; gap: 12px;">
-          <div style="width: 48px; height: 48px; background: #dc2626; border-radius: 12px; color: white; font-weight: 900; font-size: 22px; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 48px;">IB</div>
+          <div style="width: 48px; height: 48px; background: var(--primary); border-radius: 12px; color: white; font-weight: 900; font-size: 22px; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 48px;">IB</div>
           <div>
             <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #0f172a;">InfoBeans Foundation</h2>
           </div>
@@ -341,7 +279,7 @@ export default function SelectionStatusPage() {
     <Box sx={{ minHeight: '100vh', background: '#f8fafc', py: 5, fontWait: 500 }}>
       <Container maxWidth="md">
         <Box sx={{ mb: 3 }}>
-          <Button component={Link} to="/" startIcon={<ArrowBackIcon />} sx={{ color: '#dc2626', fontWeight: 700 }}>
+          <Button component={Link} to="/" startIcon={<ArrowBackIcon />} sx={{ color: 'var(--primary)', fontWeight: 700 }}>
             Back to Home
           </Button>
         </Box>
@@ -369,7 +307,7 @@ export default function SelectionStatusPage() {
               variant="contained"
               disabled={loading}
               startIcon={<SearchIcon />}
-              sx={{ background: '#dc2626', '&:hover': { background: '#b91c1c' }, px: 4, py: 1.4, whiteSpace: 'nowrap', fontWeight: 700, borderRadius: '50px' }}
+              sx={{ background: 'var(--primary)', '&:hover': { background: 'var(--primary-dark)' }, px: 4, py: 1.4, whiteSpace: 'nowrap', fontWeight: 700, borderRadius: '50px' }}
             >
               {loading ? 'Searching...' : 'Check Status'}
             </Button>
@@ -391,7 +329,7 @@ export default function SelectionStatusPage() {
                       {candidate.fullName}
                     </Typography>
                     <Typography variant="body2" sx={{ color: '#475569', mt: 0.5 }}>
-                      App Reference ID: <strong style={{ color: '#dc2626' }}>{candidate.applicationNumber || appNumber}</strong> • College: <strong>{candidate.collegeName || 'InfoBeans Applicant'}</strong> ({candidate.branch || 'ITEP'})
+                      App Reference ID: <strong style={{ color: 'var(--primary)' }}>{candidate.applicationNumber || appNumber}</strong> • College: <strong>{candidate.collegeName || 'InfoBeans Applicant'}</strong> ({candidate.branch || 'ITEP'})
                     </Typography>
                   </Box>
 
@@ -421,7 +359,7 @@ export default function SelectionStatusPage() {
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, my: 3 }}>
                       <Paper elevation={0} sx={{ p: 2.5, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
                         <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Aptitude Exam</Typography>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: isAptitudePassed ? '#16a34a' : '#d97706', mt: 0.5 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: isAptitudePassed ? 'var(--success)' : '#d97706', mt: 0.5 }}>
                           {isAptitudePassed ? 'PASSED (QUALIFIED)' : statusStr.includes('APTITUDE') ? 'SCHEDULED (PENDING)' : 'NOT STARTED'}
                         </Typography>
                       </Paper>
@@ -435,7 +373,7 @@ export default function SelectionStatusPage() {
 
                       <Paper elevation={0} sx={{ p: 2.5, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
                         <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Technical/HR Interview</Typography>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: isInterviewPassed ? '#16a34a' : isDocVerified ? '#d97706' : '#64748b', mt: 0.5 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: isInterviewPassed ? 'var(--success)' : isDocVerified ? '#d97706' : '#64748b', mt: 0.5 }}>
                           {isInterviewPassed ? 'QUALIFIED & PASSED' : isDocVerified ? 'IN PROGRESS' : 'AWAITING DOC VERIFICATION'}
                         </Typography>
                       </Paper>
@@ -557,7 +495,7 @@ export default function SelectionStatusPage() {
                       variant="contained"
                       size="large"
                       startIcon={<DownloadIcon />}
-                      sx={{ background: '#dc2626', '&:hover': { background: '#b91c1c' }, fontWeight: 800, fontSize: '1rem', py: 1.5, px: 4, borderRadius: '50px', boxShadow: '0 10px 20px rgba(220,38,38,0.25)' }}
+                      sx={{ background: 'var(--primary)', '&:hover': { background: 'var(--primary-dark)' }, fontWeight: 800, fontSize: '1rem', py: 1.5, px: 4, borderRadius: '50px', boxShadow: '0 10px 20px rgba(220,38,38,0.25)' }}
                     >
                       Download Official Enrollment Letter
                     </Button>

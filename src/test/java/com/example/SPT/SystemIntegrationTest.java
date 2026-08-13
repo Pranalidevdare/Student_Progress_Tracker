@@ -87,4 +87,11 @@ public class SystemIntegrationTest {
         mockMvc.perform(get("/api/aptitude/questions"))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    @DisplayName("Test Aptitude Start API accepts application number as candidate identifier")
+    public void testAptitudeStartByApplicationNumber() throws Exception {
+        mockMvc.perform(post("/api/aptitude/start/APP2026002"))
+                .andExpect(status().isOk());
+    }
 }

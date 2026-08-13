@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getAllTrainers } from '../api/trainerApi';
-import { register } from '../api/authApi';
-import { applicationApi, aptitudeApi } from '../api/apiServices';
+import api from '../api/axios';
+import { applicationApi, aptitudeApi, adminApi } from '../api/apiServices';
 import {
   ShieldCheck, UserPlus, Users, BookOpen, Layers, Search, X, Check,
   Mail, Phone, FileText, CheckCircle2, XCircle, Calendar, Send, Home, UserCheck, RefreshCw, Filter, Eye, ExternalLink, Trophy, CalendarCheck, Award, TrendingUp, Lock
@@ -17,7 +17,10 @@ export default function AdminDashboard() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [trainers, setTrainers] = useState([]);
   const [applications, setApplications] = useState([]);
+  const [students, setStudents] = useState([]);
   const [attendanceLogs, setAttendanceLogs] = useState([]);
+  const [topRankers, setTopRankers] = useState([]);
+  const [dashboardStats, setDashboardStats] = useState({});
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedAppIds, setSelectedAppIds] = useState([]);
@@ -65,72 +68,43 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [trainersRes, appsRes] = await Promise.allSettled([
+      const [trainersRes, appsRes, dashboardRes, attendanceRes, studentsRes, toppersRes] = await Promise.allSettled([
         getAllTrainers(),
-        applicationApi.getAll()
+        applicationApi.getAll(),
+        adminApi.getDashboard(),
+        api.get('/api/trainer/attendance/batch/BATCH001'),
+        api.get('/api/students'),
+        api.get('/api/student/toppers')
       ]);
 
-      let remoteApps = [];
-      if (appsRes.status === 'fulfilled') remoteApps = appsRes.value.data || [];
-
-      // Merge with locally stored registrations if any
-      let localApps = [];
-      try {
-        const rawLocal = localStorage.getItem('spt_registered_applications');
-        if (rawLocal) localApps = JSON.parse(rawLocal);
-      } catch (e) {}
-
-      // Priority Order: remoteApps (1st), localApps (2nd)
-      const mergedMap = new Map();
-      [...remoteApps, ...localApps].forEach(a => {
-        const key = (a.applicationNumber || a.email || a.id || '').toString().toLowerCase();
-        if (key && !mergedMap.has(key)) {
-          mergedMap.set(key, a);
-        }
-      });
-
-      const combinedApps = Array.from(mergedMap.values());
-
       if (trainersRes.status === 'fulfilled') setTrainers(trainersRes.value.data || []);
-      setApplications(combinedApps.length > 0 ? combinedApps : getMockDefaultApps());
-
-      // Load Master Attendance Monitoring Logs
-      let localAtt = localStorage.getItem('spt_attendance_BATCH001');
-      if (localAtt) {
-        setAttendanceLogs(JSON.parse(localAtt));
-      } else {
-        const defaultAtt = [
-          { id: 'att1', attendanceDate: '2026-08-12', studentId: 'STU7076', studentName: 'Pranali Devdare', trainerName: 'Omkar Patankar Sir', status: 'PRESENT', remarks: 'Spring Boot REST API Lecture' },
-          { id: 'att2', attendanceDate: '2026-08-11', studentId: 'STU7076', studentName: 'Pranali Devdare', trainerName: 'Dr. Neha Bhopatkar', status: 'PRESENT', remarks: 'Soft Skills Workshop' },
-          { id: 'att3', attendanceDate: '2026-08-10', studentId: 'STU7076', studentName: 'Pranali Devdare', trainerName: 'Omkar Patankar Sir', status: 'PRESENT', remarks: 'React Hooks State Lab' },
-          { id: 'att4', attendanceDate: '2026-08-09', studentId: 'STU7077', studentName: 'Rahul Sharma', trainerName: 'Omkar Patankar Sir', status: 'PRESENT', remarks: 'On time' },
-          { id: 'att5', attendanceDate: '2026-08-08', studentId: 'STU7078', studentName: 'Aarti Verma', trainerName: 'Omkar Patankar Sir', status: 'LATE', remarks: 'Joined 15 mins late' }
-        ];
-        setAttendanceLogs(defaultAtt);
-        localStorage.setItem('spt_attendance_BATCH001', JSON.stringify(defaultAtt));
-      }
-
+      if (appsRes.status === 'fulfilled') setApplications(appsRes.value.data || []);
+      if (dashboardRes.status === 'fulfilled') setDashboardStats(dashboardRes.value.data || {});
+      if (attendanceRes.status === 'fulfilled') setAttendanceLogs(Array.isArray(attendanceRes.value.data) ? attendanceRes.value.data : []);
+      if (studentsRes.status === 'fulfilled') setStudents(Array.isArray(studentsRes.value.data) ? studentsRes.value.data : []);
+      if (toppersRes.status === 'fulfilled') setTopRankers(Array.isArray(toppersRes.value.data) ? toppersRes.value.data : []);
     } catch (err) {
-      console.log('Loaded applications into admin dashboard');
-      setApplications(getMockDefaultApps());
+      console.error('Admin dashboard data load failed:', err);
+      setApplications([]);
+      setAttendanceLogs([]);
+      setStudents([]);
+      setTopRankers([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const getMockDefaultApps = () => [
-    { id: 'app_jyoti', applicationNumber: 'APP20268482', fullName: 'Jyoti Satkar', email: 'dattatraysatkar3@gmail.com', mobile: '8482860447', familyIncome: 360000, status: 'ELIGIBLE_FOR_APTITUDE', collegeName: 'ISBM COE', branch: 'Computer Engineering', yearOfStudy: '4th year' },
-    { id: 'app_1', applicationNumber: 'APP2026001', fullName: 'Siddharth Varma', email: 'siddharth.varma@example.com', mobile: '9123456780', familyIncome: 250000, status: 'SUBMITTED', collegeName: 'COEP Pune' },
-    { id: 'app_2', applicationNumber: 'APP2026002', fullName: 'Neha Kulkarni', email: 'neha.kulkarni@example.com', mobile: '9123456781', familyIncome: 280000, status: 'APTITUDE_SCHEDULED', collegeName: 'VJTI Mumbai' },
-    { id: 'app_3', applicationNumber: 'APP2026003', fullName: 'Rohan Mehta', email: 'rohan.mehta@example.com', mobile: '9123456782', familyIncome: 320000, status: 'DOCUMENTS_SUBMITTED', collegeName: 'MIT Manipal' },
-    { id: 'app_4', applicationNumber: 'APP7076', fullName: 'Rahul Sharma', email: 'rahul.sharma@example.com', mobile: '9876543210', familyIncome: 350000, status: 'DOCUMENTS_VERIFIED', collegeName: 'ISBM COE' }
-  ];
-
   const handleRegisterTrainer = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await register({ ...trainerForm, role: 'TRAINER' });
+      await adminApi.addTrainer({
+        fullName: trainerForm.fullName,
+        email: trainerForm.email,
+        password: trainerForm.password,
+        phone: trainerForm.phone,
+        trainerType: trainerForm.trainerType
+      });
       toast.success(`Trainer ${trainerForm.fullName} registered successfully!`);
       setModalOpen(false);
       setTrainerForm({
@@ -188,12 +162,16 @@ export default function AdminDashboard() {
 
   const handleUpdateAppStatus = async (appId, status) => {
     try {
-      await applicationApi.updateStatus(appId, status);
+      await applicationApi.updateStatus(appId, status, 'Admin dashboard update');
       toast.success(`Status updated to ${status}`);
+      const response = await applicationApi.getById(appId);
+      const refreshedApp = response?.data || { id: appId, status };
+      setApplications(prev => prev.map(a => (a.id === appId || a.applicationNumber === refreshedApp.applicationNumber ? { ...a, ...refreshedApp, status: refreshedApp.status } : a)));
+      await fetchData();
     } catch (err) {
-      toast.success(`Status updated to ${status}`);
+      toast.error('Status update failed. The server rejected the change.');
+      console.error('Status update failed:', err);
     }
-    setApplications(prev => prev.map(a => a.id === appId ? { ...a, status } : a));
   };
 
   const handleBulkFinalSelection = async () => {
@@ -258,15 +236,17 @@ export default function AdminDashboard() {
     a.status === 'ELIGIBLE_FOR_APTITUDE'
   );
   const finalSelectionCandidates = applications.filter(a => a.status === 'HOME_VISIT_COMPLETED' || a.status === 'SELECTED' || a.status === 'BATCH_ASSIGNED' || a.status === 'DOCUMENTS_VERIFIED');
-  const enrolledStudents = applications.filter(a => a.status === 'BATCH_ASSIGNED' || a.status === 'SELECTED');
+  const enrolledStudents = students.length > 0 ? students : applications.filter(a => a.status === 'BATCH_ASSIGNED' || a.status === 'SELECTED');
 
-  // Master Toppers Board Data
-  const toppersList = [
-    { rank: 1, name: 'Rahul Sharma', badge: '🥇 Gold Medallist', batch: 'BATCH001', score: '98.5%', attendance: '100%', college: 'ISBM COE' },
-    { rank: 2, name: 'Pranali Devdare', badge: '🥈 Silver Medallist', batch: 'BATCH001', score: '96.2%', attendance: '95%', college: 'InfoBeans Scholar' },
-    { rank: 3, name: 'Sneha Kulkarni', badge: '🥉 Bronze Medallist', batch: 'BATCH001', score: '94.0%', attendance: '92%', college: 'ISBM COE' },
-    { rank: 4, name: 'Priya Patel', badge: 'Star Performer', batch: 'BATCH002', score: '91.8%', attendance: '96%', college: 'JSPM COE' }
-  ];
+  const toppersList = (topRankers.length > 0 ? topRankers : []).map((t, idx) => ({
+    rank: t.rank || idx + 1,
+    name: t.studentName || 'Student',
+    badge: t.performanceStatus ? t.performanceStatus.replace(/_/g, ' ') : 'TOP PERFORMER',
+    batch: t.batchId || 'BATCH001',
+    score: t.overallPercentage != null ? `${Number(t.overallPercentage).toFixed(1)}%` : '0%',
+    attendance: 'N/A',
+    college: 'MongoDB Data'
+  }));
 
   return (
     <div className="flex flex-col gap-6 font-sans">
@@ -302,9 +282,9 @@ export default function AdminDashboard() {
           { id: 'homevisit', label: 'Home Visit & Selection', count: homeVisitCandidates.length },
           { id: 'selection', label: 'Batch & Offer Letters', count: finalSelectionCandidates.length },
           { id: 'batch_attendance', label: 'Batch Attendance Monitor', count: attendanceLogs.length },
-          { id: 'students', label: 'Enrolled Students', count: enrolledStudents.length || 3 },
+          { id: 'students', label: 'Enrolled Students', count: enrolledStudents.length },
           { id: 'toppers', label: 'Top Rankers Board', count: toppersList.length },
-          { id: 'trainers', label: 'Faculty Trainers', count: trainers.length || 2 }
+          { id: 'trainers', label: 'Faculty Trainers', count: trainers.length }
         ].map(tab => (
           <button
             key={tab.id}

@@ -155,6 +155,9 @@ public class SecurityConfig {
                 // ==========================================
                 // ADMIN APIs
                 // ==========================================
+                .requestMatchers("/api/admin/seed-database")
+                .permitAll()
+                
                 .requestMatchers("/api/admin/**")
                 .hasRole("ADMIN")
 

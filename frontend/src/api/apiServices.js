@@ -17,11 +17,11 @@ export const applicationApi = {
   submit: (form) => api.post('/api/applications/submit', form),
   getAll: () => api.get('/api/admin/applications/getAll'),
   getById: (id) => api.get(`/api/admin/applications/getById/${id}`),
-  getByAppNumber: (appNum) => api.get(`/api/admin/applications/getByApplicationNumber/${appNum}`),
+  getByAppNumber: (appNum) => api.get(`/api/applications/getByApplicationNumber/${appNum}`),
   searchByName: (name) => api.get(`/api/admin/applications/searchByName?name=${name}`),
   getByStatus: (status) => api.get(`/api/admin/applications/getByStatus/${status}`),
   getEligibleForAptitude: () => api.get('/api/admin/applications/eligible-for-aptitude'),
-  updateStatus: (id, status) => api.put(`/api/admin/applications/update/${id}?status=${status}`),
+  updateStatus: (id, status, remarks = '') => api.patch(`/api/admin/applications/updateStatus/${id}`, { status, remarks }),
   delete: (id) => api.delete(`/api/admin/applications/delete/${id}`),
   createStudent: (id) => api.post(`/api/admin/applications/${id}/create-student`),
   getEnrollmentLetter: (id) => api.get(`/api/admin/applications/${id}/enrollment-letter`)
@@ -40,16 +40,87 @@ export const aptitudeApi = {
 
 // ─── DOCUMENTATION APIs ────────────────────────────────────────────────
 export const documentationApi = {
-  uploadDocument: (candidateId, docType, file) => {
+  submitDocumentation: (applicationId, payload, files = {}) => {
     const formData = new FormData();
-    formData.append('file', file);
-    formData.append('docType', docType);
-    return api.post(`/api/documentation/upload/${candidateId}`, formData, {
+    formData.append('applicationId', applicationId);
+
+    const stringFields = {
+      candidateName: payload.candidateName,
+      dateOfBirth: payload.dateOfBirth,
+      age: payload.age,
+      gender: payload.gender,
+      otherGender: payload.otherGender,
+      fatherName: payload.fatherName,
+      fatherOccupation: payload.fatherOccupation,
+      motherName: payload.motherName,
+      motherOccupation: payload.motherOccupation,
+      firstGraduate: payload.firstGraduate,
+      maritalStatus: payload.maritalStatus,
+      mailingFullName: payload.mailingFullName,
+      mailingAddress: payload.mailingAddress,
+      mailingPincode: payload.mailingPincode,
+      personalMobile: payload.personalMobile,
+      personalEmail: payload.personalEmail,
+      guardianFullName: payload.guardianFullName,
+      guardianAddress: payload.guardianAddress,
+      guardianPincode: payload.guardianPincode,
+      guardianMobile: payload.guardianMobile,
+      guardianLandline: payload.guardianLandline,
+      tenthSchoolName: payload.tenthSchoolName,
+      tenthBoard: payload.tenthBoard,
+      tenthPassingYear: payload.tenthPassingYear,
+      tenthMarks: payload.tenthMarks,
+      tenthPercentage: payload.tenthPercentage,
+      twelfthSchoolName: payload.twelfthSchoolName,
+      twelfthBoard: payload.twelfthBoard,
+      twelfthPassingYear: payload.twelfthPassingYear,
+      twelfthMarks: payload.twelfthMarks,
+      twelfthPercentage: payload.twelfthPercentage,
+      graduationCollege: payload.graduationCollege,
+      graduationDegree: payload.graduationDegree,
+      graduationMarks: payload.graduationMarks,
+      graduationPercentage: payload.graduationPercentage,
+      graduationPassingYear: payload.graduationPassingYear,
+      postGraduationCollege: payload.postGraduationCollege,
+      postGraduationDegree: payload.postGraduationDegree,
+      postGraduationPassingYear: payload.postGraduationPassingYear,
+      postGraduationMarks: payload.postGraduationMarks,
+      postGraduationPercentage: payload.postGraduationPercentage,
+      declarationAccepted: payload.declarationAccepted ? 'true' : 'false'
+    };
+
+    Object.entries(stringFields).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        formData.append(key, String(value));
+      }
+    });
+
+    const fileFields = [
+      'passportPhoto',
+      'aadharDocument',
+      'tenthMarksheet',
+      'twelfthMarksheet',
+      'bachelorMarksheet',
+      'masterMarksheet',
+      'familyIncomeCertificate'
+    ];
+
+    fileFields.forEach((fieldName) => {
+      const file = files[fieldName];
+      if (file) {
+        formData.append(fieldName, file);
+      }
+    });
+
+    return api.post('/api/documentations/submit', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
   },
-  getDocuments: (candidateId) => api.get(`/api/documentation/candidate/${candidateId}`),
-  verifyDocument: (docId, status, notes) => api.put(`/api/documentation/verify/${docId}?status=${status}&notes=${notes}`)
+  getByApplicationId: (applicationId) => api.get(`/api/documentations/application/${applicationId}`),
+  getByApplicationNumber: (applicationNumber) => api.get(`/api/documentations/application/${applicationNumber}`),
+  getAll: () => api.get('/api/admin/documentations'),
+  verify: (documentId, remarks = '') => api.patch(`/api/admin/documentations/${documentId}/verify`, null, { params: { remarks } }),
+  reject: (documentId, remarks = '') => api.patch(`/api/admin/documentations/${documentId}/reject`, null, { params: { remarks } })
 };
 
 // ─── SELECTION STAGE APIs ──────────────────────────────────────────────

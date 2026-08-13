@@ -19,6 +19,8 @@
     --primary: #DC2626;
     --primary-dark: #991B1B;
     --primary-light: #FEF2F2;
+    --success: #16a34a;
+    --success-dark: #15803d;
     --sidebar-width: 260px;
     --header-height: 64px;
   }
@@ -42,12 +44,12 @@
   }
 
   .sidebar-link:hover {
-    background-color: #fef2f2 !important;
-    color: #dc2626 !important;
+    background-color: var(--primary-light) !important;
+    color: var(--primary) !important;
   }
 
   .sidebar-link.active {
-    background-color: #dc2626 !important;
+    background-color: var(--primary) !important;
     color: #ffffff !important;
     box-shadow: 0 4px 6px -1px rgba(220, 38, 38, 0.25) !important;
     font-weight: 700 !important;
@@ -188,7 +190,8 @@
   }
 
   .table th {
-    @apply bg-red-600 text-white text-xs font-semibold uppercase tracking-wide px-4 py-3 text-left;
+    @apply text-white text-xs font-semibold uppercase tracking-wide px-4 py-3 text-left;
+    background: var(--primary);
   }
 
   .table td {
@@ -257,4 +260,4 @@
 /* Scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #f1f5f9; }
-::-webkit-scrollbar-thumb { background: #dc2626; border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 4px; }

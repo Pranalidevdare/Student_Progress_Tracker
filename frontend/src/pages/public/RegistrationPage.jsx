@@ -45,6 +45,8 @@ const initialForm = {
   additionalComments: "",
 };
 
+const isValidIndianMobile = (value) => /^[6-9]\d{9}$/.test(String(value || '').trim());
+
 export default function RegistrationPage() {
   const [form, setForm] = useState(initialForm);
   const [submitting, setSubmitting] = useState(false);
@@ -69,45 +71,74 @@ export default function RegistrationPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!isValidIndianMobile(form.contactNumber)) {
+      toast.error('Please enter a valid 10-digit mobile number starting with 6–9.');
+      return;
+    }
+
+    if (!isValidIndianMobile(form.fatherContactNumber)) {
+      toast.error('Please enter a valid father mobile number starting with 6–9.');
+      return;
+    }
+
+    if (!isValidIndianMobile(form.motherContactNumber)) {
+      toast.error('Please enter a valid mother mobile number starting with 6–9.');
+      return;
+    }
+
     setSubmitting(true);
 
     const generatedAppNum = `APP${Math.floor(1000 + Math.random() * 9000)}`;
     const familyIncomeVal = Number(form.familyIncome);
     const calculatedStatus = familyIncomeVal < 400000 ? 'ELIGIBLE_FOR_APTITUDE' : 'NOT_ELIGIBLE';
 
-    const newAppRecord = {
-      id: `app_${Date.now()}`,
-      applicationNumber: generatedAppNum,
-      fullName: form.fullName,
-      email: form.emailId,
-      mobile: form.contactNumber,
-      collegeName: form.collegeName,
-      branch: form.branch,
-      yearOfStudy: form.yearOfStudy,
-      familyIncome: familyIncomeVal,
-      status: calculatedStatus,
-      createdAt: new Date().toISOString()
-    };
-
-    saveApplicationLocally(newAppRecord);
-
     try {
-      const response = await applicationApi.submit({
-        ...form,
+      // Map frontend form values to backend DTO expected types/names
+      const payload = {
+        fullName: form.fullName,
         email: form.emailId,
         mobile: form.contactNumber,
+        fatherOccupation: form.fatherOccupation,
+        fatherContactNumber: form.fatherContactNumber,
+        motherOccupation: form.motherOccupation,
+        motherContactNumber: form.motherContactNumber,
         familyIncome: familyIncomeVal,
+        branch: form.branch,
+        yearOfStudy: form.yearOfStudy,
+        collegeName: form.collegeName,
+        // convert Yes/No strings to boolean values expected by backend
+        interestedInITEP: form.interestedInITEP === "Yes",
+        joinedWhatsappGroup: form.whatsappJoined === "Yes",
+        additionalComments: form.additionalComments,
         applicationNumber: generatedAppNum
-      });
+      };
+
+      const response = await applicationApi.submit(payload);
       const realAppNum = response?.data?.applicationNumber || generatedAppNum;
+
+      const newAppRecord = {
+        id: `app_${Date.now()}`,
+        applicationNumber: realAppNum,
+        fullName: form.fullName,
+        email: form.emailId,
+        mobile: form.contactNumber,
+        collegeName: form.collegeName,
+        branch: form.branch,
+        yearOfStudy: form.yearOfStudy,
+        familyIncome: familyIncomeVal,
+        status: calculatedStatus,
+        createdAt: new Date().toISOString()
+      };
+
+      saveApplicationLocally(newAppRecord);
       toast.success("Registration Received!");
       setSubmittedAppNum(realAppNum);
       setSubmittedEmail(form.emailId);
     } catch (error) {
-      console.warn("API request logged. Displaying application confirmation.");
-      setSubmittedAppNum(generatedAppNum);
-      setSubmittedEmail(form.emailId);
-      toast.success("Registration Received!");
+      const backendMessage = error?.response?.data?.message || 'Please check the form values and try again.';
+      console.error('Application submission failed:', error);
+      toast.error(backendMessage);
     } finally {
       setSubmitting(false);
     }
@@ -117,14 +148,14 @@ export default function RegistrationPage() {
     <Box sx={{ minHeight: "100vh", background: "#f8fafc", py: { xs: 3, md: 6 } }}>
       <Container maxWidth="md">
         <Box sx={{ mb: 3 }}>
-          <Button component={Link} to="/" startIcon={<ArrowBackIcon />} sx={{ color: "#dc2626" }}>
+          <Button component={Link} to="/" startIcon={<ArrowBackIcon />} sx={{ color: 'var(--primary)' }}>
             Back to Home
           </Button>
         </Box>
 
         <Paper elevation={0} sx={{ borderRadius: 3, overflow: "hidden", border: "1px solid #dadce0", background: "#fff" }}>
           {/* Header */}
-          <Box sx={{ background: "#D32F2F", color: "#fff", px: { xs: 3, sm: 4 }, py: { xs: 3, sm: 4 } }}>
+          <Box sx={{ background: 'var(--primary)', color: "#fff", px: { xs: 3, sm: 4 }, py: { xs: 3, sm: 4 } }}>
             <Typography sx={{ fontSize: { xs: "1.6rem", sm: "2rem" }, fontWeight: 700, mb: 1 }}>
               Candidate Registration Portal
             </Typography>
@@ -135,7 +166,7 @@ export default function RegistrationPage() {
 
           {submittedAppNum ? (
             <Box sx={{ p: { xs: 4, md: 6 }, textAlign: "center" }}>
-              <CheckCircleIcon sx={{ fontSize: 72, color: "#16a34a", mb: 2 }} />
+              <CheckCircleIcon sx={{ fontSize: 72, color: 'var(--success)', mb: 2 }} />
               
               <Typography variant="h4" sx={{ fontWeight: 800, color: "#0f172a", mb: 2 }}>
                 Registration Received!
@@ -158,7 +189,7 @@ export default function RegistrationPage() {
                   to="/"
                   variant="contained"
                   startIcon={<HomeIcon />}
-                  sx={{ background: "#dc2626", "&:hover": { background: "#b91c1c" }, px: 3, py: 1, fontWeight: 700 }}
+                  sx={{ background: 'var(--primary)', '&:hover': { background: 'var(--primary-dark)' }, px: 3, py: 1, fontWeight: 700 }}
                 >
                   Return to Home
                 </Button>
@@ -178,15 +209,15 @@ export default function RegistrationPage() {
               <Stack spacing={3}>
                 <Typography sx={{ fontWeight: 700, color: "#202124", fontSize: 16 }}>Personal Details</Typography>
                 <TextField fullWidth label="Full Name" name="fullName" value={form.fullName} onChange={handleChange} required />
-                <TextField fullWidth label="Contact Number" name="contactNumber" value={form.contactNumber} onChange={handleChange} required />
+                <TextField fullWidth label="Contact Number" name="contactNumber" value={form.contactNumber} onChange={handleChange} required inputProps={{ maxLength: 10 }} />
                 <TextField fullWidth label="Email ID" name="emailId" value={form.emailId} onChange={handleChange} type="email" required />
 
                 <Divider />
                 <Typography sx={{ fontWeight: 700, color: "#202124", fontSize: 16 }}>Parent Details</Typography>
                 <TextField fullWidth label="Father's Occupation" name="fatherOccupation" value={form.fatherOccupation} onChange={handleChange} required />
-                <TextField fullWidth label="Father's Contact" name="fatherContactNumber" value={form.fatherContactNumber} onChange={handleChange} required />
+                <TextField fullWidth label="Father's Contact" name="fatherContactNumber" value={form.fatherContactNumber} onChange={handleChange} required inputProps={{ maxLength: 10 }} />
                 <TextField fullWidth label="Mother's Occupation" name="motherOccupation" value={form.motherOccupation} onChange={handleChange} required />
-                <TextField fullWidth label="Mother's Contact" name="motherContactNumber" value={form.motherContactNumber} onChange={handleChange} required />
+                <TextField fullWidth label="Mother's Contact" name="motherContactNumber" value={form.motherContactNumber} onChange={handleChange} required inputProps={{ maxLength: 10 }} />
 
                 <Divider />
                 <Typography sx={{ fontWeight: 700, color: "#202124", fontSize: 16 }}>Academic Details</Typography>
@@ -216,6 +247,14 @@ export default function RegistrationPage() {
                   </RadioGroup>
                 </FormControl>
 
+                <FormControl>
+                  <FormLabel sx={{ color: "#202124", mb: 1 }}>Have you joined the WhatsApp group?</FormLabel>
+                  <RadioGroup name="whatsappJoined" value={form.whatsappJoined} onChange={handleChange} row>
+                    <FormControlLabel value="Yes" control={<Radio color="error" />} label="Yes" />
+                    <FormControlLabel value="No" control={<Radio color="error" />} label="No" />
+                  </RadioGroup>
+                </FormControl>
+
                 <TextField fullWidth multiline rows={3} label="Additional Comments" name="additionalComments" value={form.additionalComments} onChange={handleChange} />
 
                 <Box sx={{ display: "flex", justifyContent: "flex-end", pt: 2 }}>
@@ -224,7 +263,7 @@ export default function RegistrationPage() {
                     variant="contained"
                     disabled={submitting}
                     endIcon={<ArrowForwardIcon />}
-                    sx={{ background: "#D32F2F", borderRadius: "999px", px: 4, py: 1.2, fontWeight: 700, "&:hover": { background: "#B71C1C" } }}
+                    sx={{ background: 'var(--primary)', borderRadius: "999px", px: 4, py: 1.2, fontWeight: 700, '&:hover': { background: 'var(--primary-dark)' } }}
                   >
                     {submitting ? "Submitting..." : "Submit Registration"}
                   </Button>

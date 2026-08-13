@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.example.SPT.config.SystemDataSeeder;
 import com.example.SPT.dto.request.AddTrainerRequest;
 import com.example.SPT.dto.request.AptitudeTestScheduleRequest;
 import com.example.SPT.dto.request.CreateBatchRequest;
@@ -37,6 +38,7 @@ public class AdminController {
     private final AdminDashboardService adminDashboardService;
     
     private final AptitudeTestScheduleService aptitudeTestScheduleService;
+    private final SystemDataSeeder systemDataSeeder;
 
 //    public AdminController(AdminService adminService) {
 //        this.adminService = adminService;
@@ -233,5 +235,16 @@ public ResponseEntity<AptitudeTestScheduleResponse> scheduleAptitudeTest(
             .body(response);
 }
 
+@PostMapping("/seed-database")
+public ResponseEntity<String> seedDatabase() {
+    try {
+        systemDataSeeder.seedDatabase();
+        return ResponseEntity.ok("Database seeded successfully!");
+    } catch (Exception e) {
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("Error seeding database: " + e.getMessage());
+    }
+}
 
 }

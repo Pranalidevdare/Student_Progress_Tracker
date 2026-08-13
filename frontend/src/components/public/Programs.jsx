@@ -319,7 +319,7 @@ export default function Programs() {
             <>
               <DialogTitle sx={{ m: 0, p: 2.5, display: "flex", alignItems: "center", justify: "space-between" }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                  <Box sx={{ p: 1, borderRadius: 2, background: "#fff2f2" }}>
+                  <Box sx={{ p: 1, borderRadius: 2, background: "var(--primary-light)" }}>
                     {selectedProgram.icon}
                   </Box>
                   <Box>
@@ -327,7 +327,7 @@ export default function Programs() {
                       {selectedProgram.title}
                     </Typography>
                     <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
-                      <Chip label={selectedProgram.duration} size="small" sx={{ background: "#fee2e2", color: "#991b1b", fontWeight: 700, fontSize: 11 }} />
+                      <Chip label={selectedProgram.duration} size="small" sx={{ background: "#fee2e2", color: "var(--primary-dark)", fontWeight: 700, fontSize: 11 }} />
                       <Chip label={selectedProgram.level} size="small" sx={{ background: "#f1f5f9", color: "#334155", fontWeight: 600, fontSize: 11 }} />
                     </Stack>
                   </Box>
@@ -352,8 +352,8 @@ export default function Programs() {
                 </Typography>
                 <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5, mb: 3 }}>
                   {selectedProgram.modules.map((mod, idx) => (
-                    <Box key={idx} sx={{ display: "flex", alignItems: "flex-start", gap: 1, p: 1.2, background: "#f8fafc", borderRadius: 2, border: "1px solid #f1f5f9" }}>
-                      <CheckCircleIcon sx={{ color: "#16a34a", fontSize: 18, mt: 0.2 }} />
+                      <Box key={idx} sx={{ display: "flex", alignItems: "flex-start", gap: 1, p: 1.2, background: "#f8fafc", borderRadius: 2, border: "1px solid #f1f5f9" }}>
+                      <CheckCircleIcon sx={{ color: "var(--success)", fontSize: 18, mt: 0.2 }} />
                       <Typography variant="body2" sx={{ fontSize: 13, color: "#334155", fontWeight: 600 }}>
                         {mod}
                       </Typography>
@@ -380,7 +380,7 @@ export default function Programs() {
                   to="/registration"
                   variant="contained"
                   endIcon={<ArrowForwardIcon />}
-                  sx={{ background: "#dc2626", "&:hover": { background: "#b91c1c" }, px: 3, py: 1, borderRadius: "50px", fontWeight: 700 }}
+                  sx={{ background: 'var(--primary)', '&:hover': { background: 'var(--primary-dark)' }, px: 3, py: 1, borderRadius: '50px', fontWeight: 700 }}
                 >
                   Apply for this Program
                 </Button>

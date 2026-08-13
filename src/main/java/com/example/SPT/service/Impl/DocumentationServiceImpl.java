@@ -67,9 +67,10 @@ public class DocumentationServiceImpl implements DocumentationService {
         Application application =
                 applicationRepository
                         .findById(request.getApplicationId())
+                        .or(() -> applicationRepository.findByApplicationNumber(request.getApplicationId()))
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
-                                        "Application not found with id: "
+                                        "Application not found with id or application number: "
                                                 + request.getApplicationId()));
 
 
@@ -80,14 +81,17 @@ public class DocumentationServiceImpl implements DocumentationService {
         /*
          * Documentation should be submitted only after
          * the candidate passes the aptitude test.
+         * Legacy or rejected submissions are also allowed to retry.
          */
-        if (application.getStatus()
-                != ApplicationStatus.DOCUMENTATION_PENDING) {
+        ApplicationStatus currentStatus = application.getStatus();
+        if (currentStatus != ApplicationStatus.APTITUDE_PASSED
+                && currentStatus != ApplicationStatus.DOCUMENTATION_PENDING
+                && currentStatus != ApplicationStatus.DOCUMENTS_REJECTED) {
 
             throw new IllegalStateException(
                     "Documentation cannot be submitted. "
                     + "Current application status is: "
-                    + application.getStatus());
+                    + currentStatus);
         }
 
 

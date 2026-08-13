@@ -4,9 +4,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import org.springframework.boot.CommandLineRunner;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import com.example.SPT.entity.*;
 import com.example.SPT.enums.*;
@@ -15,10 +17,13 @@ import com.example.SPT.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-@Component
+@Service
 @RequiredArgsConstructor
 @Slf4j
-public class SystemDataSeeder implements CommandLineRunner {
+public class SystemDataSeeder {
+
+    @Value("${app.seed-demo-data:false}")
+    private boolean enableStartupSeeding;
 
     private final UserRepository userRepository;
     private final BatchRepository batchRepository;
@@ -38,8 +43,21 @@ public class SystemDataSeeder implements CommandLineRunner {
     private final FeedbackRepository feedbackRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Override
-    public void run(String... args) throws Exception {
+    @EventListener(ApplicationReadyEvent.class)
+    public void seedOnStartup() {
+        if (!enableStartupSeeding) {
+            log.info("System Data Seeder: startup seeding is disabled by configuration.");
+            return;
+        }
+
+        try {
+            seedDatabase();
+        } catch (Exception e) {
+            log.error("System Data Seeder: startup seeding failed", e);
+        }
+    }
+
+    public void seedDatabase() throws Exception {
 
         // Check if full seeding has already occurred
         if (batchRepository.count() > 0) {

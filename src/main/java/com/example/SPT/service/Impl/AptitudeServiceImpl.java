@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -85,13 +86,16 @@ public class AptitudeServiceImpl implements AptitudeService {
         // Check application status
         // -----------------------------------------------------
 
-        if (application.getStatus()
-                != ApplicationStatus.APTITUDE_SCHEDULED) {
+        ApplicationStatus currentStatus = application.getStatus();
+
+        if (currentStatus != ApplicationStatus.APTITUDE_SCHEDULED
+                && currentStatus != ApplicationStatus.ELIGIBLE_FOR_APTITUDE
+                && currentStatus != ApplicationStatus.APTITUDE_FAILED) {
 
             throw new IllegalStateException(
                     "Candidate is not eligible to start aptitude test. "
                     + "Current application status: "
-                    + application.getStatus());
+                    + currentStatus);
         }
 
 
@@ -512,12 +516,18 @@ public class AptitudeServiceImpl implements AptitudeService {
                 continue;
             }
 
+            String normalizedSelectedAnswer =
+                    normalizeAnswer(
+                            selectedAnswer,
+                            question);
 
             attemptedQuestions++;
 
 
-            String correctAnswer =
-                    question.getCorrectAnswer();
+            String correctedAnswer =
+                    normalizeAnswer(
+                            question.getCorrectAnswer(),
+                            question);
 
 
             int questionMarks =
@@ -527,11 +537,11 @@ public class AptitudeServiceImpl implements AptitudeService {
 
 
             boolean correct =
-                    correctAnswer != null
-                            && correctAnswer
-                                    .trim()
+                    correctedAnswer != null
+                            && !correctedAnswer.isBlank()
+                            && correctedAnswer
                                     .equalsIgnoreCase(
-                                            selectedAnswer.trim());
+                                            normalizedSelectedAnswer);
 
 
             if (correct) {
@@ -715,10 +725,51 @@ public class AptitudeServiceImpl implements AptitudeService {
 
         return applicationRepository
                 .findById(candidateId)
+                .or(() -> applicationRepository.findByApplicationNumber(candidateId))
                 .orElseThrow(() ->
                         new RuntimeException(
-                                "Application not found with id: "
+                                "Application not found with id or application number: "
                                         + candidateId));
+    }
+
+    private String normalizeAnswer(
+            String answer,
+            AptitudeQuestion question) {
+
+        if (answer == null) {
+            return "";
+        }
+
+        String value = answer.trim();
+
+        if (value.isEmpty()) {
+            return "";
+        }
+
+        String upperValue = value.toUpperCase(Locale.ROOT);
+
+        if (upperValue.matches("[ABCD]")) {
+            return upperValue;
+        }
+
+        if (upperValue.matches("[0-3]")) {
+            return String.valueOf((char) ('A' + Integer.parseInt(upperValue)));
+        }
+
+        String[] options = {
+                question.getOptionA(),
+                question.getOptionB(),
+                question.getOptionC(),
+                question.getOptionD()
+        };
+
+        for (int i = 0; i < options.length; i++) {
+            if (options[i] != null && options[i].equalsIgnoreCase(value)) {
+                return String.valueOf((char) ('A' + i));
+            }
+        }
+
+        return upperValue;
     }
 
 
