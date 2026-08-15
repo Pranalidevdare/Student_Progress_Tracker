@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.example.SPT.dto.request.AssignmentSubmissionRequest;
 import com.example.SPT.dto.response.AssignmentResponse;
+import com.example.SPT.dto.response.AssignmentSubmissionDetailResponse;
 import com.example.SPT.service.AssignmentService;
 
 import jakarta.validation.Valid;
@@ -28,13 +29,22 @@ public class StudentAssignmentController {
                 assignmentService.getAssignmentsByBatch(batchId));
     }
 
+    @GetMapping("/{assignmentId}/submission")
+    public ResponseEntity<AssignmentSubmissionDetailResponse> getStudentSubmission(
+            @PathVariable String assignmentId,
+            @RequestParam String studentId) {
+
+        return ResponseEntity.ok(
+                assignmentService.getStudentAssignmentSubmission(assignmentId, studentId));
+    }
+
     @PostMapping("/submit")
     public ResponseEntity<String> submitAssignment(
             @Valid @RequestBody AssignmentSubmissionRequest request) {
 
         assignmentService.submitAssignment(request);
 
-        return ResponseEntity.ok("Assignment submitted successfully.");
+        return ResponseEntity.ok("Assignment saved successfully.");
     }
 
 }

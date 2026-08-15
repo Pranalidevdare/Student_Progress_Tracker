@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { getPerformance, updatePerformance } from '../api/performanceApi';
 import { Activity, RefreshCw, Search, Trophy, CheckCircle, AlertTriangle, User, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
+import EmptyState from '../components/ui/EmptyState';
+import LoadingState from '../components/ui/LoadingState';
 
 export default function Performance() {
   const [studentSearchInput, setStudentSearchInput] = useState('Jyoti Satkar');
@@ -233,13 +235,11 @@ export default function Performance() {
           </div>
         </div>
       ) : (
-        <div className="card">
-          <div className="empty-state py-16">
-            <div className="empty-icon"><Activity size={32} /></div>
-            <h4 className="text-sm font-bold text-gray-700">Select or Enter a Student Name Above</h4>
-            <p className="text-xs text-gray-400 max-w-sm">Lookup performance scorecards or trigger automatic metric updates based on latest assignment and test scores.</p>
-          </div>
-        </div>
+        <EmptyState
+          icon={Activity}
+          title="No Student Performance Selected"
+          description="Select a student from the batch roster above or enter a student name to load their performance scorecard."
+        />
       )}
     </div>
   );

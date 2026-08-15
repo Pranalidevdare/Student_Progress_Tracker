@@ -1,6 +1,7 @@
 package com.example.SPT.entity;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -35,9 +36,16 @@ public class AssignmentSubmission {
     // Batch Details
     private String batchId;
 
-    // Submission Details
+    // Submission Details & Student Question Answers
     private String submissionFileUrl;
     private String submissionRemarks;
+    private List<QuestionAnswer> questionAnswers;
+
+    /**
+     * DRAFT
+     * SUBMITTED
+     */
+    private String submissionStatus;
 
     private LocalDateTime submittedAt;
 

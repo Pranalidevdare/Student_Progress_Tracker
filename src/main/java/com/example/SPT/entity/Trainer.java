@@ -26,6 +26,7 @@ public class Trainer {
     private String lastName;
     private String email;
     private String mobile;
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate dateOfBirth;
     private String gender;
 

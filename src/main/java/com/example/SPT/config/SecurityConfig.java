@@ -141,6 +141,7 @@ public class SecurityConfig {
                 .requestMatchers(
                         "/api/auth/**",
                         "/auth/**",
+                        "/api/health",
                         "/api/applications/**",
                         "/api/aptitude/**",
                         "/api/documentation/**",
@@ -168,8 +169,11 @@ public class SecurityConfig {
                 .hasAnyRole("TRAINER", "ADMIN")
 
                 // ==========================================
-                // STUDENT APIs
+                // STUDENT & MATERIALS APIs
                 // ==========================================
+                .requestMatchers("/api/materials/**")
+                .hasAnyRole("STUDENT", "TRAINER", "ADMIN")
+
                 .requestMatchers("/api/student/**", "/api/students/**")
                 .hasAnyRole("STUDENT", "TRAINER", "ADMIN")
 

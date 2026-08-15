@@ -1,6 +1,9 @@
 package com.example.SPT.dto.response;
 
 import java.time.LocalDate;
+import java.util.List;
+
+import com.example.SPT.entity.AssignmentQuestion;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -27,6 +30,10 @@ public class AssignmentResponse {
 
     private String subject;
 
+    private String questionSource;
+
+    private List<AssignmentQuestion> questions;
+
     private Integer totalMarks;
 
     private LocalDate assignedDate;
@@ -36,5 +43,11 @@ public class AssignmentResponse {
     private String attachmentUrl;
 
     private String status;
+
+    private Integer totalStudents;
+    private Integer submittedCount;
+    private Integer pendingCount;
+    private Integer evaluatedCount;
+    private Integer pendingEvaluationCount;
 
 }

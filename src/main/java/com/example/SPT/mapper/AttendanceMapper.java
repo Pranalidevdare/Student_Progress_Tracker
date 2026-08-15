@@ -22,6 +22,7 @@ public class AttendanceMapper {
                 .trainerName(attendance.getTrainerName())
                 .batchId(attendance.getBatchId())
                 .attendanceDate(attendance.getAttendanceDate())
+                .sessionType(attendance.getSessionType() != null ? attendance.getSessionType() : "TECHNICAL")
                 .status(attendance.getStatus())
                 .remarks(attendance.getRemarks())
                 .build();

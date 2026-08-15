@@ -11,6 +11,13 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+import {
+  getStudentNotifications,
+  getUnreadNotificationCount,
+  markNotificationAsRead,
+  markAllNotificationsAsRead
+} from '../api/notificationApi';
+
 export default function StudentDashboard() {
   const { user } = useAuth();
   const studentId = user?.id || user?.studentId || 'STUDENT001';
@@ -21,6 +28,8 @@ export default function StudentDashboard() {
   const [materials, setMaterials] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [notices, setNotices] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -63,21 +72,60 @@ export default function StudentDashboard() {
 
       setCandidateData(appRecord);
 
-      // Always fetch student learning portal metrics for logged-in students
-      const [matRes, assRes, notRes] = await Promise.allSettled([
+      // Always fetch student learning portal metrics & notifications
+      const [matRes, assRes, notRes, notifRes, unreadRes] = await Promise.allSettled([
         getMaterialsByBatch(batchId),
         getAssignmentsByBatch(batchId),
-        getActiveNotices()
+        getActiveNotices(),
+        getStudentNotifications(),
+        getUnreadNotificationCount()
       ]);
 
       if (matRes.status === 'fulfilled') setMaterials(matRes.value.data || []);
       if (assRes.status === 'fulfilled') setAssignments(assRes.value.data || []);
       if (notRes.status === 'fulfilled') setNotices(notRes.value.data || []);
+      if (notifRes.status === 'fulfilled') setNotifications(notifRes.value.data || []);
+      if (unreadRes.status === 'fulfilled') setUnreadCount(Number(unreadRes.value.data) || 0);
     } catch (err) {
       console.log('Loaded student dashboard view');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleNotificationClick = async (notif) => {
+    if (!notif.read) {
+      try {
+        await markNotificationAsRead(notif.id);
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      } catch (e) {}
+    }
+  };
+
+  const getTypeBadge = (type, refType) => {
+    const t = String(refType || type || '').toUpperCase();
+    if (t.includes('ASSESSMENT')) {
+      return { label: 'ASSESSMENT', color: 'bg-red-100 text-red-700 border-red-200', link: '/assessments' };
+    } else if (t.includes('MATERIAL')) {
+      return { label: 'STUDY MATERIAL', color: 'bg-emerald-100 text-emerald-800 border-emerald-200', link: '/materials' };
+    } else {
+      return { label: 'ASSIGNMENT', color: 'bg-purple-100 text-purple-700 border-purple-200', link: '/assignments' };
+    }
+  };
+
+  const getTimeAgo = (dateStr) => {
+    if (!dateStr) return 'Just now';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    if (seconds < 60) return 'Just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
   };
 
   const currentStatus = candidateData?.status || user?.status || 'SELECTED';
@@ -133,6 +181,86 @@ export default function StudentDashboard() {
           </Link>
         </div>
       )}
+
+      {/* Batch Notifications Section */}
+      <div className="card p-5 border-blue-100 bg-blue-50/30">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold relative">
+              <Bell size={18} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-black animate-pulse">
+                  {unreadCount}
+                </span>
+              )}
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-gray-900">🔔 Batch Notifications</h3>
+              <p className="text-xs text-gray-500">Real-time updates for assignments, scheduled tests & study materials in batch '{batchId}'</p>
+            </div>
+          </div>
+
+          {notifications.length > 0 && (
+            <button
+              onClick={async () => {
+                await markAllNotificationsAsRead();
+                setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                setUnreadCount(0);
+              }}
+              className="text-xs text-blue-600 hover:text-blue-800 font-bold hover:underline"
+            >
+              Mark all as read
+            </button>
+          )}
+        </div>
+
+        {notifications.length > 0 ? (
+          <div className="divide-y divide-blue-100/60 bg-white rounded-xl border border-blue-100 overflow-hidden">
+            {notifications.slice(0, 5).map((notif) => {
+              const badge = getTypeBadge(notif.type, notif.referenceType);
+              return (
+                <div
+                  key={notif.id}
+                  onClick={() => handleNotificationClick(notif)}
+                  className={`p-3.5 flex items-start justify-between gap-3 hover:bg-blue-50/60 transition cursor-pointer ${!notif.read ? 'bg-blue-50/40 border-l-4 border-red-600' : ''}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${!notif.read ? 'bg-red-600' : 'bg-transparent'}`} />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-bold text-gray-900">{notif.title}</h4>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${badge.color}`}>
+                          {badge.label}
+                        </span>
+                        <span className="text-[10px] text-gray-400 font-medium">{getTimeAgo(notif.createdAt)}</span>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-0.5">{notif.message}</p>
+                      <p className="text-[10px] text-gray-400 mt-1">Batch: {notif.batchId}</p>
+                    </div>
+                  </div>
+
+                  <Link
+                    to={badge.link}
+                    onClick={() => handleNotificationClick(notif)}
+                    className="btn bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-bold py-1 px-2.5 rounded-lg flex items-center gap-1 flex-shrink-0"
+                  >
+                    <span>View</span>
+                    <ArrowRight size={12} />
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-blue-100 p-6 text-center text-xs text-gray-400 flex flex-col items-center gap-2">
+            <div className="p-3 bg-blue-50 text-blue-500 rounded-full">
+              <Bell size={22} />
+            </div>
+            <p className="font-bold text-gray-700">No new notifications</p>
+            <p className="text-[11px]">You'll see updates about assignments, assessments and study materials here.</p>
+          </div>
+        )}
+      </div>
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

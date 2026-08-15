@@ -14,80 +14,96 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import LoadingState from '../components/ui/LoadingState';
+import EmptyState from '../components/ui/EmptyState';
+import ErrorState from '../components/ui/ErrorState';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
-  const trainerId = user?.id || user?.email || localStorage.getItem('trainerId') || '650123456789abcdef012345';
+  const trainerId = user?.id || user?.email || localStorage.getItem('trainerId');
 
   useEffect(() => {
     fetchDashboard();
-  }, [trainerId]);
+  }, [trainerId, user?.batchId]);
 
   const fetchDashboard = async () => {
     setLoading(true);
-    setError('');
-    let loadedRemote = false;
+    setError(null);
     try {
       const res = await getTrainerDashboard(trainerId);
-      if (res.data && (res.data.totalStudents > 0 || res.data.totalAssignments > 0)) {
+      if (res.data) {
         setData(res.data);
-        loadedRemote = true;
       }
     } catch (err) {
-      console.log('Loaded rich faculty dashboard metrics');
+      console.error('Failed to fetch trainer dashboard metrics', err);
+      const errMsg = err.response?.data?.message || 'Unable to load dashboard data from server. Please try again.';
+      setError(errMsg);
+    } finally {
+      setLoading(false);
     }
-
-    if (!loadedRemote) {
-      setData({
-        totalStudents: 28,
-        totalAssignments: 12,
-        totalAssessments: 8,
-        totalStudyMaterials: 16,
-        totalInterviews: 14,
-        attendanceMarkedToday: 26,
-        totalGuestSessions: 4,
-        totalNotices: 5,
-        trainer: {
-          firstName: user?.fullName ? user.fullName.split(' ')[0] : 'Faculty',
-          specialization: user?.trainerType || 'TECHNICAL TRAINER'
-        },
-        topPerformers: [
-          { rank: 1, studentId: 'STU7077', studentName: 'Rahul Sharma', overallPercentage: 98.5 },
-          { rank: 2, studentId: 'STU7076', studentName: 'Pranali Devdare', overallPercentage: 96.2 },
-          { rank: 3, studentId: 'STU7079', studentName: 'Sneha Kulkarni', overallPercentage: 94.0 },
-          { rank: 4, studentId: 'STU7078', studentName: 'Priya Patel', overallPercentage: 91.8 }
-        ],
-        latestNotices: [
-          { title: 'ITEP Batch 2026 Orientation Program', priority: 'HIGH', description: 'Mandatory induction session for all new batch students in Main Auditorium.', trainerName: 'Dr. Neha Bhopatkar', category: 'ACADEMIC' },
-          { title: 'Spring Boot Microservices Exam Schedule', priority: 'HIGH', description: 'Technical assessment for Spring Data JPA and REST APIs.', trainerName: 'Omkar Patankar Sir', category: 'EXAM' },
-          { title: 'Cloud DevOps Masterclass Session', priority: 'NORMAL', description: 'Guest webinar on Docker & AWS Deployment.', trainerName: 'InfoBeans Foundation', category: 'GENERAL' }
-        ]
-      });
-    }
-    setLoading(false);
   };
 
   const statCards = [
-    { label: 'Assigned Students', value: (data?.totalStudents && data.totalStudents > 0) ? data.totalStudents : 28, icon: Users, color: 'bg-red-50 text-red-600 border-red-100' },
-    { label: 'Total Assignments', value: (data?.totalAssignments && data.totalAssignments > 0) ? data.totalAssignments : 12, icon: ClipboardList, color: 'bg-blue-50 text-blue-600 border-blue-100' },
-    { label: 'Assessments Created', value: (data?.totalAssessments && data.totalAssessments > 0) ? data.totalAssessments : 8, icon: FileText, color: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
-    { label: 'Study Materials', value: (data?.totalStudyMaterials && data.totalStudyMaterials > 0) ? data.totalStudyMaterials : 16, icon: BookOpen, color: 'bg-purple-50 text-purple-600 border-purple-100' },
-    { label: 'Interviews Conducted', value: (data?.totalInterviews && data.totalInterviews > 0) ? data.totalInterviews : 14, icon: Award, color: 'bg-amber-50 text-amber-600 border-amber-100' },
-    { label: 'Attendance Today', value: (data?.attendanceMarkedToday && data.attendanceMarkedToday > 0) ? `${data.attendanceMarkedToday} Present` : '26 Present (96%)', icon: CalendarCheck, color: 'bg-indigo-50 text-indigo-600 border-indigo-100' },
-    { label: 'Guest Sessions', value: (data?.totalGuestSessions && data.totalGuestSessions > 0) ? data.totalGuestSessions : 4, icon: Video, color: 'bg-rose-50 text-rose-600 border-rose-100' },
-    { label: 'Active Notices', value: (data?.totalNotices && data.totalNotices > 0) ? data.totalNotices : 5, icon: Bell, color: 'bg-orange-50 text-orange-600 border-orange-100' },
+    {
+      label: 'Assigned Students',
+      value: data?.totalStudents != null ? (data.totalStudents > 0 ? data.totalStudents : '0 (No students assigned)') : '0',
+      icon: Users,
+      color: 'bg-red-50 text-red-600 border-red-100'
+    },
+    {
+      label: 'Total Assignments',
+      value: data?.totalAssignments != null ? (data.totalAssignments > 0 ? data.totalAssignments : '0 (No assignments yet)') : '0',
+      icon: ClipboardList,
+      color: 'bg-blue-50 text-blue-600 border-blue-100'
+    },
+    {
+      label: 'Assessments Created',
+      value: data?.totalAssessments != null ? (data.totalAssessments > 0 ? data.totalAssessments : '0 (No assessments yet)') : '0',
+      icon: FileText,
+      color: 'bg-emerald-50 text-emerald-600 border-emerald-100'
+    },
+    {
+      label: 'Study Materials',
+      value: data?.totalStudyMaterials != null ? (data.totalStudyMaterials > 0 ? data.totalStudyMaterials : '0 (No study materials)') : '0',
+      icon: BookOpen,
+      color: 'bg-purple-50 text-purple-600 border-purple-100'
+    },
+    {
+      label: 'Interviews Conducted',
+      value: data?.totalInterviews != null ? (data.totalInterviews > 0 ? data.totalInterviews : '0 (No interviews yet)') : '0',
+      icon: Award,
+      color: 'bg-amber-50 text-amber-600 border-amber-100'
+    },
+    {
+      label: 'Attendance Today',
+      value: data?.attendanceMarkedToday != null ? (data.attendanceMarkedToday > 0 ? `${data.attendanceMarkedToday} Present` : 'No attendance marked today') : 'No attendance marked today',
+      icon: CalendarCheck,
+      color: 'bg-indigo-50 text-indigo-600 border-indigo-100'
+    },
+    {
+      label: 'Guest Sessions',
+      value: data?.totalGuestSessions != null ? (data.totalGuestSessions > 0 ? data.totalGuestSessions : '0 (No guest sessions)') : '0',
+      icon: Video,
+      color: 'bg-rose-50 text-rose-600 border-rose-100'
+    },
+    {
+      label: 'Active Notices',
+      value: data?.totalNotices != null ? (data.totalNotices > 0 ? data.totalNotices : '0 (No active notices)') : '0',
+      icon: Bell,
+      color: 'bg-orange-50 text-orange-600 border-orange-100'
+    },
   ];
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="spinner w-10 h-10 border-red-600" />
-      </div>
-    );
+    return <LoadingState message="Loading Faculty Dashboard..." />;
+  }
+
+  if (error) {
+    return <ErrorState error={error} onRetry={fetchDashboard} />;
   }
 
   return (
@@ -119,14 +135,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {error && (
-        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center justify-between">
-          <span>⚠️ {error}</span>
-          <button onClick={fetchDashboard} className="underline font-semibold">Retry</button>
-        </div>
-      )}
-
-      {/* Grid of Active Metrics (No Zero values) */}
+      {/* Grid of Active Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat, i) => {
           const Icon = stat.icon;
@@ -136,7 +145,7 @@ export default function Dashboard() {
                 <Icon size={22} />
               </div>
               <div>
-                <p className="text-xl font-extrabold text-gray-900">{stat.value}</p>
+                <p className="text-lg font-extrabold text-gray-900">{stat.value}</p>
                 <p className="text-xs font-medium text-gray-500 mt-0.5">{stat.label}</p>
               </div>
             </div>
@@ -160,28 +169,36 @@ export default function Dashboard() {
           </div>
 
           <div className="card-body p-0">
-            <div className="divide-y divide-gray-100">
-              {(data?.topPerformers || []).map((student, idx) => (
-                <div key={idx} className="p-4 flex items-center justify-between hover:bg-red-50/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${
-                      idx === 0 ? 'bg-amber-100 text-amber-700 border border-amber-300' :
-                      idx === 1 ? 'bg-slate-200 text-slate-700' :
-                      idx === 2 ? 'bg-amber-700/10 text-amber-900' : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      #{student.rank || idx + 1}
+            {data?.topPerformers && data.topPerformers.length > 0 ? (
+              <div className="divide-y divide-gray-100">
+                {data.topPerformers.map((student, idx) => (
+                  <div key={idx} className="p-4 flex items-center justify-between hover:bg-red-50/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${
+                        idx === 0 ? 'bg-amber-100 text-amber-700 border border-amber-300' :
+                        idx === 1 ? 'bg-slate-200 text-slate-700' :
+                        idx === 2 ? 'bg-amber-700/10 text-amber-900' : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        #{student.rank || idx + 1}
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-800">{student.studentName || 'Student'}</p>
+                        <p className="text-[11px] text-gray-400">ID: {student.studentId || 'N/A'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs font-bold text-gray-800">{student.studentName || 'Student'}</p>
-                      <p className="text-[11px] text-gray-400">ID: {student.studentId || 'N/A'}</p>
-                    </div>
+                    <span className="badge-green font-bold">
+                      {student.overallPercentage != null ? `${student.overallPercentage.toFixed(1)}%` : 'N/A'}
+                    </span>
                   </div>
-                  <span className="badge-green font-bold">
-                    {student.overallPercentage ? `${student.overallPercentage.toFixed(1)}%` : '96.2%'}
-                  </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={Trophy}
+                title="No evaluated performance data available"
+                description="Performance rankings will appear here once assignments or assessments are evaluated."
+              />
+            )}
           </div>
         </div>
 
@@ -199,24 +216,32 @@ export default function Dashboard() {
           </div>
 
           <div className="card-body p-0">
-            <div className="divide-y divide-gray-100">
-              {(data?.latestNotices || []).map((notice, idx) => (
-                <div key={idx} className="p-4 flex flex-col gap-1 hover:bg-red-50/50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-gray-800">{notice.title}</span>
-                    <span className={`badge ${
-                      notice.priority === 'HIGH' ? 'badge-red' : 'badge-gray'
-                    }`}>
-                      {notice.priority || 'NORMAL'}
-                    </span>
+            {data?.latestNotices && data.latestNotices.length > 0 ? (
+              <div className="divide-y divide-gray-100">
+                {data.latestNotices.map((notice, idx) => (
+                  <div key={idx} className="p-4 flex flex-col gap-1 hover:bg-red-50/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-800">{notice.title}</span>
+                      <span className={`badge ${
+                        notice.priority === 'HIGH' ? 'badge-red' : 'badge-gray'
+                      }`}>
+                        {notice.priority || 'NORMAL'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 line-clamp-2">{notice.description}</p>
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      Posted by: {notice.trainerName || 'Trainer'} • Category: {notice.category || 'General'}
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-500 line-clamp-2">{notice.description}</p>
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    Posted by: {notice.trainerName || 'Trainer'} • Category: {notice.category || 'General'}
-                  </p>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={Bell}
+                title="No Notices Available"
+                description="There are no notices or announcements to display."
+              />
+            )}
           </div>
         </div>
       </div>

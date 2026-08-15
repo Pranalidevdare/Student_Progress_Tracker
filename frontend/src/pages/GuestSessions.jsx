@@ -8,10 +8,12 @@ import {
 } from '../api/guestSessionApi';
 import { Plus, Edit2, Trash2, Video, Calendar, MapPin, UserCheck, X, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
+import EmptyState from '../components/ui/EmptyState';
+import LoadingState from '../components/ui/LoadingState';
 
 export default function GuestSessions() {
   const { user } = useAuth();
-  const trainerId = user?.id || localStorage.getItem('trainerId') || '650123456789abcdef012345';
+  const trainerId = user?.id || user?.email || localStorage.getItem('trainerId');
   const defaultBatchId = user?.batchId || localStorage.getItem('batchId') || 'BATCH001';
 
   const [sessions, setSessions] = useState([]);
@@ -137,9 +139,7 @@ export default function GuestSessions() {
 
       {/* Grid of Sessions */}
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="spinner w-10 h-10 border-red-600" />
-        </div>
+        <LoadingState message="Loading guest sessions..." />
       ) : sessions.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {sessions.map((item) => (
@@ -204,13 +204,13 @@ export default function GuestSessions() {
           ))}
         </div>
       ) : (
-        <div className="card">
-          <div className="empty-state py-16">
-            <div className="empty-icon"><Video size={32} /></div>
-            <h4 className="text-sm font-bold text-gray-700">No Guest Sessions Scheduled</h4>
-            <p className="text-xs text-gray-400 max-w-sm">No talks scheduled yet. Click "Schedule Session" to bring industry experts to your batch.</p>
-          </div>
-        </div>
+        <EmptyState
+          icon={Video}
+          title="No Guest Sessions Available"
+          description="No guest sessions have been scheduled yet. Click 'Schedule Session' to organize tech talks."
+          actionLabel="+ Schedule Session"
+          onAction={handleOpenCreateModal}
+        />
       )}
 
       {/* Modal */}

@@ -76,15 +76,58 @@ export default function MaterialsPage() {
                   {item.description}
                 </p>
               </div>
-              <div style={{ borderTop: '1px solid var(--color-border-light)', paddingTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
-                <a
-                  href={item.fileUrl || item.url || '#'}
-                  target="_blank"
-                  rel="noreferrer"
+              <div style={{ borderTop: '1px solid var(--color-border-light)', paddingTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const t = (item.type || item.materialType || '').toUpperCase();
+                    if (t.includes('DOC') || t.includes('PPT') || t.includes('WORD') || t.includes('PRESENTATION')) {
+                      alert('Preview is not available for this file type. Please download the file.');
+                      return;
+                    }
+                    try {
+                      const res = await fetch(`/api/materials/${item.id}/file?mode=view`, {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                      });
+                      if (!res.ok) throw new Error('File not available');
+                      const blob = await res.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      window.open(url, '_blank');
+                    } catch (e) {
+                      alert('Unable to preview material: ' + e.message);
+                    }
+                  }}
                   className="btn btn-outline btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: 4 }}
                 >
-                  <MdDownload /> Download / Open
-                </a>
+                  👁 View
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/materials/${item.id}/file?mode=download`, {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                      });
+                      if (!res.ok) throw new Error('Download failed');
+                      const blob = await res.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = item.fileName || 'material';
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                      setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+                    } catch (e) {
+                      alert('Download failed: ' + e.message);
+                    }
+                  }}
+                  className="btn btn-primary btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                >
+                  <MdDownload /> Download
+                </button>
               </div>
             </div>
           ))}

@@ -27,6 +27,8 @@ public class AttendanceResponse {
 
     private LocalDate attendanceDate;
 
+    private String sessionType;
+
     private String status;
 
     private String remarks;

@@ -33,3 +33,21 @@ build/
 .vscode/
 /bin/
 **/node_modules/
+
+### Local environment files ###
+.env
+.env.*
+/.apt_generated_tests/
+
+### Crash logs and dumps ###
+*.log
+hs_err_*
+replay_*
+seed_out.txt
+
+### Runtime uploads ###
+uploads/
+/uploads/
+
+### Frontend Build Output ###
+frontend/dist/

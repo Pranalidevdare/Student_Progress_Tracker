@@ -22,6 +22,8 @@ public class AssignmentMapper {
                 .title(assignment.getTitle())
                 .description(assignment.getDescription())
                 .subject(assignment.getSubject())
+                .questionSource(assignment.getQuestionSource() != null ? assignment.getQuestionSource() : (assignment.getAttachmentUrl() != null && !assignment.getAttachmentUrl().isEmpty() ? "PDF" : "MANUAL"))
+                .questions(assignment.getQuestions())
                 .totalMarks(assignment.getTotalMarks())
                 .assignedDate(assignment.getAssignedDate())
                 .dueDate(assignment.getDueDate())

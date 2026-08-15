@@ -209,15 +209,15 @@ export default function RegistrationPage() {
               <Stack spacing={3}>
                 <Typography sx={{ fontWeight: 700, color: "#202124", fontSize: 16 }}>Personal Details</Typography>
                 <TextField fullWidth label="Full Name" name="fullName" value={form.fullName} onChange={handleChange} required />
-                <TextField fullWidth label="Contact Number" name="contactNumber" value={form.contactNumber} onChange={handleChange} required inputProps={{ maxLength: 10 }} />
+                <TextField fullWidth label="Contact Number" name="contactNumber" value={form.contactNumber} onChange={handleChange} required slotProps={{ htmlInput: { maxLength: 10 } }} />
                 <TextField fullWidth label="Email ID" name="emailId" value={form.emailId} onChange={handleChange} type="email" required />
 
                 <Divider />
                 <Typography sx={{ fontWeight: 700, color: "#202124", fontSize: 16 }}>Parent Details</Typography>
                 <TextField fullWidth label="Father's Occupation" name="fatherOccupation" value={form.fatherOccupation} onChange={handleChange} required />
-                <TextField fullWidth label="Father's Contact" name="fatherContactNumber" value={form.fatherContactNumber} onChange={handleChange} required inputProps={{ maxLength: 10 }} />
+                <TextField fullWidth label="Father's Contact" name="fatherContactNumber" value={form.fatherContactNumber} onChange={handleChange} required slotProps={{ htmlInput: { maxLength: 10 } }} />
                 <TextField fullWidth label="Mother's Occupation" name="motherOccupation" value={form.motherOccupation} onChange={handleChange} required />
-                <TextField fullWidth label="Mother's Contact" name="motherContactNumber" value={form.motherContactNumber} onChange={handleChange} required inputProps={{ maxLength: 10 }} />
+                <TextField fullWidth label="Mother's Contact" name="motherContactNumber" value={form.motherContactNumber} onChange={handleChange} required slotProps={{ htmlInput: { maxLength: 10 } }} />
 
                 <Divider />
                 <Typography sx={{ fontWeight: 700, color: "#202124", fontSize: 16 }}>Academic Details</Typography>

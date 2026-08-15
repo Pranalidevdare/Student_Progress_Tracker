@@ -67,6 +67,7 @@ this.jwtService = jwtService;
         userRepository.save(user);
 
         return AuthResponse.builder()
+                .id(user.getId())
                 .message("Registration Successful")
                 .email(user.getEmail())
                 .fullName(user.getFullName())
@@ -96,6 +97,7 @@ this.jwtService = jwtService;
         String token = jwtService.generateToken(user.getEmail());
 
         return AuthResponse.builder()
+                .id(user.getId())
                 .token(token)
                 .message("Login Successful")
                 .email(user.getEmail())

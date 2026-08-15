@@ -12,12 +12,18 @@ public interface TrainerService {
 
     TrainerResponse getTrainerById(String id);
 
+    TrainerResponse getTrainerProfileByEmail(String email);
+
     List<TrainerResponse> getAllTrainers();
 
     TrainerResponse updateTrainer(String id, TrainerRequest request);
 
+    TrainerResponse updateTrainerProfileByEmail(String email, TrainerRequest request);
+
     void deleteTrainer(String id);
 
     TrainerDashboardResponse getTrainerDashboard(String trainerId);
+
+    TrainerDashboardResponse getTrainerDashboard(String trainerId, String authenticatedEmail);
 
 }

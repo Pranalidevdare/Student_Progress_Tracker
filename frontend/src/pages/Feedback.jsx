@@ -3,10 +3,12 @@ import { useAuth } from '../context/AuthContext';
 import { getFeedbackByTrainer } from '../api/feedbackApi';
 import { MessageSquare, Star, User } from 'lucide-react';
 import toast from 'react-hot-toast';
+import EmptyState from '../components/ui/EmptyState';
+import LoadingState from '../components/ui/LoadingState';
 
 export default function Feedback() {
   const { user } = useAuth();
-  const trainerId = user?.id || localStorage.getItem('trainerId') || '650123456789abcdef012345';
+  const trainerId = user?.id || user?.email || localStorage.getItem('trainerId');
 
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -48,9 +50,7 @@ export default function Feedback() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="spinner w-10 h-10 border-red-600" />
-        </div>
+        <LoadingState message="Loading student feedback..." />
       ) : feedbacks.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {feedbacks.map((item) => (
@@ -80,13 +80,11 @@ export default function Feedback() {
           ))}
         </div>
       ) : (
-        <div className="card">
-          <div className="empty-state py-16">
-            <div className="empty-icon"><MessageSquare size={32} /></div>
-            <h4 className="text-sm font-bold text-gray-700">No Student Feedback Received</h4>
-            <p className="text-xs text-gray-400 max-w-sm">Feedback submitted by students for your lectures will automatically appear here.</p>
-          </div>
-        </div>
+        <EmptyState
+          icon={MessageSquare}
+          title="No Student Feedback Available"
+          description="There are no student feedback or queries submitted at the moment."
+        />
       )}
     </div>
   );

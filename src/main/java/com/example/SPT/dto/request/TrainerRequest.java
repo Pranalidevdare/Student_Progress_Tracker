@@ -29,7 +29,8 @@ public class TrainerRequest {
     @NotBlank(message = "Mobile Number is required")
     private String mobile;
 
-    @NotNull(message = "Date of Birth is required")
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd")
+    @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
     private LocalDate dateOfBirth;
 
     private String gender;

@@ -81,6 +81,12 @@ public class SystemIntegrationTest {
                 .andExpect(jsonPath("$").isArray());
     }
 
+    @Autowired
+    private com.example.SPT.repository.ApplicationRepository applicationRepository;
+
+    @Autowired
+    private com.example.SPT.repository.AptitudeResultRepository aptitudeResultRepository;
+
     @Test
     @DisplayName("Test Candidate Aptitude Questions API - Public Access")
     public void testPublicAptitudeQuestions() throws Exception {
@@ -91,6 +97,22 @@ public class SystemIntegrationTest {
     @Test
     @DisplayName("Test Aptitude Start API accepts application number as candidate identifier")
     public void testAptitudeStartByApplicationNumber() throws Exception {
+        com.example.SPT.entity.Application app = applicationRepository.findByApplicationNumber("APP2026002")
+                .orElseGet(() -> com.example.SPT.entity.Application.builder()
+                        .applicationNumber("APP2026002")
+                        .fullName("Candidate Test")
+                        .email("candidate_test@spt.com")
+                        .mobile("9876543210")
+                        .status(com.example.SPT.enums.ApplicationStatus.APTITUDE_SCHEDULED)
+                        .build());
+        app = applicationRepository.save(app);
+        if (app.getId() != null) {
+            aptitudeResultRepository.deleteAll(aptitudeResultRepository.findByCandidateIdOrderByCreatedAtDesc(app.getId()));
+        }
+        aptitudeResultRepository.deleteAll(aptitudeResultRepository.findByCandidateIdOrderByCreatedAtDesc("APP2026002"));
+        app.setStatus(com.example.SPT.enums.ApplicationStatus.APTITUDE_SCHEDULED);
+        applicationRepository.save(app);
+
         mockMvc.perform(post("/api/aptitude/start/APP2026002"))
                 .andExpect(status().isOk());
     }

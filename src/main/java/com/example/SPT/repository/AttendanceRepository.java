@@ -16,10 +16,24 @@ public interface AttendanceRepository extends MongoRepository<Attendance, String
     List<Attendance> findByBatchId(String batchId);
 
     List<Attendance> findByAttendanceDate(LocalDate attendanceDate);
+
+    java.util.Optional<Attendance> findByStudentIdAndAttendanceDateAndSessionType(
+            String studentId, LocalDate attendanceDate, String sessionType);
+
+    List<Attendance> findByBatchIdAndAttendanceDate(String batchId, LocalDate attendanceDate);
+
+    List<Attendance> findByBatchIdAndAttendanceDateAndSessionType(
+            String batchId, LocalDate attendanceDate, String sessionType);
+
+    List<Attendance> findByStudentIdAndAttendanceDateBetween(
+            String studentId, LocalDate startDate, LocalDate endDate);
+
+    List<Attendance> findByBatchIdAndAttendanceDateBetween(
+            String batchId, LocalDate startDate, LocalDate endDate);
+
     long countByTrainerIdAndAttendanceDate(
             String trainerId,
             LocalDate attendanceDate);
     
     long countByAttendanceDate(LocalDate attendanceDate);
-
 }

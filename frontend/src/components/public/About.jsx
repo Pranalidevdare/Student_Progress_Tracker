@@ -54,7 +54,7 @@ export default function ProgramsSection() {
         <Grid
           container
           spacing={8}
-          alignItems="center"
+          sx={{ alignItems: "center" }}
         >
 
           {/* LEFT */}

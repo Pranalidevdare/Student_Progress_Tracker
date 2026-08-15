@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { getAllToppers, getToppersByBatch, getTopRankers } from '../api/topperApi';
 import { Trophy, Award, Medal, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
+import EmptyState from '../components/ui/EmptyState';
+import LoadingState from '../components/ui/LoadingState';
 
 export default function Toppers() {
   const { user } = useAuth();
@@ -107,7 +109,7 @@ export default function Toppers() {
               {loading ? (
                 <tr>
                   <td colSpan="6" className="text-center py-12">
-                    <div className="spinner w-8 h-8 border-red-600 mx-auto" />
+                    <LoadingState message="Loading leaderboard..." />
                   </td>
                 </tr>
               ) : toppers.length > 0 ? (
@@ -140,12 +142,12 @@ export default function Toppers() {
                 })
               ) : (
                 <tr>
-                  <td colSpan="6">
-                    <div className="empty-state">
-                      <div className="empty-icon"><Trophy size={32} /></div>
-                      <h4 className="text-sm font-bold text-gray-700">No Leaderboard Data Available</h4>
-                      <p className="text-xs text-gray-400 max-w-sm">No rankers calculated yet. Perform student evaluations to populate rankings.</p>
-                    </div>
+                  <td colSpan="6" className="p-0">
+                    <EmptyState
+                      icon={Trophy}
+                      title="No Topper Data Available"
+                      description="The topper board will appear once student performance data is available for this batch."
+                    />
                   </td>
                 </tr>
               )}

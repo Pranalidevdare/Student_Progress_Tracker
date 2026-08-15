@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { conductInterview } from '../api/interviewApi';
-import { applicationApi } from '../api/apiServices';
+import { conductInterview, getTrainerInterviewCandidates } from '../api/interviewApi';
 import { Award, Search, CheckCircle2, Star, User, AlertCircle, Save, Check, X, Filter, RefreshCw, UserCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
+import EmptyState from '../components/ui/EmptyState';
+import LoadingState from '../components/ui/LoadingState';
 
 export default function Interviews() {
   const { user } = useAuth();
-  const trainerId = user?.id || localStorage.getItem('trainerId') || '650123456789abcdef012345';
+  const trainerId = user?.id || user?.email || localStorage.getItem('trainerId');
   const defaultBatchId = user?.batchId || localStorage.getItem('batchId') || 'BATCH001';
   
   // Trainer Role Type: 'TECHNICAL' or 'SOFT_SKILLS'
@@ -51,12 +52,12 @@ export default function Interviews() {
     setLoadingCandidates(true);
     let remoteApps = [];
     try {
-      const res = await applicationApi.getAll();
+      const res = await getTrainerInterviewCandidates();
       if (res.data && Array.isArray(res.data) && res.data.length > 0) {
         remoteApps = res.data;
       }
     } catch (err) {
-      console.log('Loading interview queue fallback');
+      console.warn('Failed to load trainer candidates:', err);
     }
 
     // Merge with local applications stored during student registration
@@ -242,7 +243,7 @@ export default function Interviews() {
 
         <div className="card-body p-0">
           {loadingCandidates ? (
-            <div className="flex justify-center py-8"><div className="spinner w-8 h-8 border-red-600" /></div>
+            <LoadingState message="Loading candidate interview queue..." />
           ) : eligibleCandidates.length > 0 ? (
             <div className="table-container">
               <table className="table">
@@ -278,9 +279,11 @@ export default function Interviews() {
               </table>
             </div>
           ) : (
-            <div className="p-8 text-center text-xs text-gray-400">
-              No candidates currently pending for {isSoftSkillTrainer ? 'Soft-Skill' : 'Technical'} Interview evaluation. Use direct search above to load candidate.
-            </div>
+            <EmptyState
+              icon={Award}
+              title="No Mock Interviews Pending"
+              description={`No candidates currently pending for ${isSoftSkillTrainer ? 'Soft-Skill' : 'Technical'} Interview evaluation. Use direct search above to load a candidate.`}
+            />
           )}
         </div>
       </div>

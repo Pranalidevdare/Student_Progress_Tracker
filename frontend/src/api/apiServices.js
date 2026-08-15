@@ -139,8 +139,10 @@ export const adminApi = {
 
   addTrainer: (trainerData) => api.post('/api/admin/trainers/add', trainerData),
   getAllTrainers: () => api.get('/api/admin/trainers/getAll'),
-  getTrainerById: (id) => api.get(`/api/admin/trainers/getById/${id}`),
-  updateTrainer: (id, data) => api.put(`/api/admin/trainers/update/${id}`, data),
+  getTrainerById: (id) => api.get(`/api/trainers/${id}`),
+  getTrainerProfile: () => api.get('/api/trainers/profile'),
+  updateTrainerProfile: (data) => api.put('/api/trainers/profile', data),
+  updateTrainer: (id, data) => api.put(`/api/trainers/${id}`, data),
   deleteTrainer: (id) => api.delete(`/api/admin/trainers/delete/${id}`),
 
   createBatch: (batchData) => api.post('/api/admin/batches/create', batchData),

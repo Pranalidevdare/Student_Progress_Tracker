@@ -8,13 +8,15 @@ import {
 } from '../api/noticeApi';
 import { Plus, Edit2, Trash2, Bell, AlertTriangle, X, Check, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
+import EmptyState from '../components/ui/EmptyState';
+import LoadingState from '../components/ui/LoadingState';
 
 export default function Notices() {
   const { user } = useAuth();
   const roleStr = String(user?.role || '').toUpperCase();
   const isStudent = roleStr.includes('STUDENT');
 
-  const trainerId = user?.id || localStorage.getItem('trainerId') || '650123456789abcdef012345';
+  const trainerId = user?.id || user?.email || localStorage.getItem('trainerId');
   const defaultBatchId = user?.batchId || localStorage.getItem('batchId') || 'BATCH001';
 
   const [notices, setNotices] = useState([]);
@@ -195,9 +197,7 @@ export default function Notices() {
 
       {/* Grid of Notices */}
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="spinner w-10 h-10 border-red-600" />
-        </div>
+        <LoadingState message="Loading announcements..." />
       ) : notices.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {notices.map((item) => (
@@ -254,13 +254,13 @@ export default function Notices() {
           ))}
         </div>
       ) : (
-        <div className="card">
-          <div className="empty-state py-16">
-            <div className="empty-icon"><Bell size={32} /></div>
-            <h4 className="text-sm font-bold text-gray-700">No Announcements Published</h4>
-            <p className="text-xs text-gray-400 max-w-sm">No notices published for your batch yet.</p>
-          </div>
-        </div>
+        <EmptyState
+          icon={Bell}
+          title="No Notices Available"
+          description="There are no notices or announcements to display for your batch."
+          actionLabel={!isStudent ? "+ Publish Notice" : undefined}
+          onAction={!isStudent ? handleOpenCreateModal : undefined}
+        />
       )}
 
       {/* Modal for Faculty/Admin ONLY */}

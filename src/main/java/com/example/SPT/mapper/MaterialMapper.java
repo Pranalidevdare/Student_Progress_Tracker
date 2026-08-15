@@ -9,10 +9,13 @@ import com.example.SPT.entity.StudyMaterial;
 public class MaterialMapper {
 
     public MaterialResponse toResponse(StudyMaterial material) {
-
         if (material == null) {
             return null;
         }
+
+        String fileEndpoint = (material.getId() != null && !material.getId().isBlank())
+                ? "/api/materials/" + material.getId() + "/file"
+                : (material.getFileUrl() != null ? material.getFileUrl() : "");
 
         return MaterialResponse.builder()
                 .id(material.getId())
@@ -24,7 +27,11 @@ public class MaterialMapper {
                 .subject(material.getSubject())
                 .materialType(material.getMaterialType())
                 .fileName(material.getFileName())
-                .fileUrl(material.getFileUrl())
+                .fileUrl(fileEndpoint)
+                .fileSize(material.getFileSize())
+                .contentType(material.getContentType())
+                .uploadedAt(material.getUploadedAt())
+                .updatedAt(material.getUpdatedAt())
                 .build();
     }
 }

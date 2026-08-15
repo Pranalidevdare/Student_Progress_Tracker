@@ -47,8 +47,10 @@ public class AssessmentResult {
      */
     private String resultStatus;
 
-    // Evaluation
+    // Evaluation & Answers
     private String trainerRemarks;
+    private String answerSheetUrl;
+    private String studentAnswers;
 
     // Submission Time
     private LocalDateTime submittedAt;

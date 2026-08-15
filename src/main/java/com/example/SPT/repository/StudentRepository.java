@@ -17,4 +17,5 @@ public interface StudentRepository extends MongoRepository<Student, String> {
     Optional<Student> findByMobile(String mobile);
     long countByBatchId(String batchId);
 
+    java.util.List<Student> findByBatchId(String batchId);
 }

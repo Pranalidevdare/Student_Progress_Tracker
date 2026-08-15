@@ -15,6 +15,9 @@ public interface InterviewRepository
     // Get all interviews of a student
     List<Interview> findByStudentId(String studentId);
 
+    // Get all interviews conducted by trainer
+    List<Interview> findByTrainerId(String trainerId);
+
     // Get a specific interview type of a student
     Optional<Interview> findByStudentIdAndInterviewType(
             String studentId,
