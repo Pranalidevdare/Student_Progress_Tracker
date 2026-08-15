@@ -17,3 +17,10 @@ export const updateGuestSession = (id, data) =>
 
 export const deleteGuestSession = (id) =>
   api.delete(`/api/trainer/guest-sessions/${id}`);
+
+// Student API Endpoints
+export const getStudentGuestSessionsByBatch = (batchId) =>
+  api.get(`/api/student/guest-sessions/batch/${batchId}`);
+
+export const getAllStudentGuestSessions = () =>
+  api.get('/api/student/guest-sessions');

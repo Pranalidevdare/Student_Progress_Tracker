@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 public class StudentResponse {
 
     private String id;
+    private String studentId;
     private SelectionStatus selectionStatus;
     private String firstName;
 

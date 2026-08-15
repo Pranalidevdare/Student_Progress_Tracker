@@ -1,9 +1,12 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+let rawBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+if (rawBaseUrl && !rawBaseUrl.endsWith('/api')) {
+  rawBaseUrl = rawBaseUrl.endsWith('/') ? `${rawBaseUrl}api` : `${rawBaseUrl}/api`;
+}
 
 const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL: rawBaseUrl,
   headers: { 'Content-Type': 'application/json' },
   timeout: 15000,
 });

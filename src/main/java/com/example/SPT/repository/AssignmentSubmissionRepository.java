@@ -1,6 +1,7 @@
 package com.example.SPT.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
@@ -14,6 +15,8 @@ public interface AssignmentSubmissionRepository
     List<AssignmentSubmission> findByStudentId(String studentId);
 
     List<AssignmentSubmission> findByAssignmentId(String assignmentId);
+
+    Optional<AssignmentSubmission> findByAssignmentIdAndStudentId(String assignmentId, String studentId);
 
     long countByStudentIdAndStatus(String studentId, String status);
 }

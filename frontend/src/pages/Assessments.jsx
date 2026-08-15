@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
+  getStudentAssessmentsByBatch,
   getAssessmentsByBatch,
   createAssessment,
   updateAssessment,
   deleteAssessment
 } from '../api/assessmentApi';
-import { Plus, Edit2, Trash2, Search, FileText, Clock, X, Check, Lock, CheckCircle2, Play } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, FileText, Clock, X, Check, Lock, CheckCircle2, Play, Calendar, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Assessments() {
@@ -14,11 +15,10 @@ export default function Assessments() {
   const roleStr = String(user?.role || '').toUpperCase();
   const isStudent = roleStr.includes('STUDENT');
 
-  const studentId = user?.id || user?.studentId || user?.applicationNumber || 'STU7076';
-  const trainerId = user?.id || localStorage.getItem('trainerId') || '650123456789abcdef012345';
-  const defaultBatchId = user?.batchId || localStorage.getItem('batchId') || 'BATCH001';
+  const studentId = user?.id || user?.studentId || user?.email || 'STU001';
+  const trainerId = user?.id || localStorage.getItem('trainerId') || 'TRN101';
+  const batchId = user?.batchId || user?.batch || 'BATCH001';
 
-  const [batchId, setBatchId] = useState(defaultBatchId);
   const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,18 +29,17 @@ export default function Assessments() {
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     trainerId: trainerId,
-    batchId: defaultBatchId,
+    batchId: batchId,
     title: '',
     subject: '',
     description: '',
     totalMarks: 50,
     durationInMinutes: 60,
     assessmentDate: new Date().toISOString().split('T')[0],
-    lastSubmissionDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
     status: 'UPCOMING'
   });
 
-  // Modal State for Student Assessment Submission
+  // Modal State for Student Assessment Submission / View Result
   const [takeModalOpen, setTakeModalOpen] = useState(false);
   const [targetAssessment, setTargetAssessment] = useState(null);
   const [studentAnswers, setStudentAnswers] = useState({});
@@ -50,39 +49,32 @@ export default function Assessments() {
     fetchAssessments();
     const localCompleted = localStorage.getItem(`spt_completed_assessments_${studentId}`);
     if (localCompleted) {
-      setCompletedAssessments(JSON.parse(localCompleted));
+      try {
+        setCompletedAssessments(JSON.parse(localCompleted));
+      } catch (e) {}
     }
   }, [batchId, studentId]);
 
   const fetchAssessments = async () => {
     if (!batchId) return;
     setLoading(true);
-    let loaded = false;
     try {
-      const res = await getAssessmentsByBatch(batchId);
-      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+      const res = isStudent
+        ? await getStudentAssessmentsByBatch(batchId)
+        : await getAssessmentsByBatch(batchId);
+
+      if (res.data && Array.isArray(res.data)) {
         setAssessments(res.data);
-        loaded = true;
+      } else {
+        setAssessments([]);
       }
     } catch (err) {
-      console.log('Loading fallback assessment records');
+      console.error('Error fetching academic assessments:', err);
+      toast.error('Unable to load academic assessments. Please try again.');
+      setAssessments([]);
+    } finally {
+      setLoading(false);
     }
-
-    if (!loaded) {
-      const localData = localStorage.getItem(`spt_assessments_${batchId}`);
-      if (localData) {
-        setAssessments(JSON.parse(localData));
-      } else {
-        const defaultItems = [
-          { id: 'ass1', title: 'Data Structures & Algorithms Mid-Term Quiz', subject: 'DSA', totalMarks: 50, durationInMinutes: 45, assessmentDate: '2026-08-10', lastSubmissionDate: '2026-08-15', description: 'Covers Arrays, Stacks, Queues & Linked Lists.', status: 'ONGOING' },
-          { id: 'ass2', title: 'Spring Boot REST Microservices Exam', subject: 'Java', totalMarks: 100, durationInMinutes: 90, assessmentDate: '2026-08-18', lastSubmissionDate: '2026-08-20', description: 'Comprehensive assessment on Spring Data JPA, Controllers & Security.', status: 'UPCOMING' },
-          { id: 'ass3', title: 'React Frontend Architecture Evaluation', subject: 'React.js', totalMarks: 50, durationInMinutes: 60, assessmentDate: '2026-08-01', lastSubmissionDate: '2026-08-03', description: 'Practical React hooks and component testing.', status: 'COMPLETED' }
-        ];
-        setAssessments(defaultItems);
-        localStorage.setItem(`spt_assessments_${batchId}`, JSON.stringify(defaultItems));
-      }
-    }
-    setLoading(false);
   };
 
   const handleOpenCreateModal = () => {
@@ -96,7 +88,6 @@ export default function Assessments() {
       totalMarks: 50,
       durationInMinutes: 60,
       assessmentDate: new Date().toISOString().split('T')[0],
-      lastSubmissionDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
       status: 'UPCOMING'
     });
     setModalOpen(true);
@@ -113,7 +104,6 @@ export default function Assessments() {
       totalMarks: item.totalMarks || 50,
       durationInMinutes: item.durationInMinutes || 60,
       assessmentDate: item.assessmentDate || '',
-      lastSubmissionDate: item.lastSubmissionDate || '',
       status: item.status || 'UPCOMING'
     });
     setModalOpen(true);
@@ -127,18 +117,19 @@ export default function Assessments() {
 
   const handleStudentSubmitAnswers = (e) => {
     e.preventDefault();
+    const scoreVal = Math.floor(targetAssessment.totalMarks * 0.9);
     const newCompleted = {
       ...completedAssessments,
       [targetAssessment.id]: {
         completedAt: new Date().toISOString().split('T')[0],
-        score: Math.floor(targetAssessment.totalMarks * 0.9),
+        score: scoreVal,
         totalMarks: targetAssessment.totalMarks
       }
     };
     setCompletedAssessments(newCompleted);
     localStorage.setItem(`spt_completed_assessments_${studentId}`, JSON.stringify(newCompleted));
 
-    toast.success(`Assessment submitted! Score: ${Math.floor(targetAssessment.totalMarks * 0.9)} / ${targetAssessment.totalMarks} pts 🎉`);
+    toast.success(`Assessment submitted! Score: ${scoreVal} / ${targetAssessment.totalMarks} pts 🎉`);
     setTakeModalOpen(false);
   };
 
@@ -159,43 +150,53 @@ export default function Assessments() {
       totalMarks: Number(formData.totalMarks) || 50,
       durationInMinutes: Number(formData.durationInMinutes) || 60,
       assessmentDate: formData.assessmentDate || new Date().toISOString().split('T')[0],
-      lastSubmissionDate: formData.lastSubmissionDate || new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
       status: formData.status || 'UPCOMING'
     };
 
     try {
       if (editingId) {
         await updateAssessment(editingId, payload);
+        toast.success('Assessment updated successfully!');
       } else {
         await createAssessment(payload);
+        toast.success('Assessment created successfully!');
       }
-    } catch (err) {}
-
-    let currentList = [...assessments];
-    if (editingId) {
-      currentList = currentList.map(item => item.id === editingId ? { ...item, ...payload } : item);
-    } else {
-      const newItem = { id: `ass_${Date.now()}`, ...payload };
-      currentList.unshift(newItem);
+      fetchAssessments();
+      setModalOpen(false);
+    } catch (err) {
+      toast.error('Failed to save assessment');
+    } finally {
+      setSubmitting(false);
     }
-    setAssessments(currentList);
-    localStorage.setItem(`spt_assessments_${batchId}`, JSON.stringify(currentList));
-
-    toast.success(editingId ? 'Assessment updated successfully!' : 'Assessment created successfully!');
-    setModalOpen(false);
-    setSubmitting(false);
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this assessment?')) return;
     try {
       await deleteAssessment(id);
-    } catch (err) {}
+      toast.success('Assessment deleted successfully!');
+      fetchAssessments();
+    } catch (err) {
+      toast.error('Failed to delete assessment');
+    }
+  };
 
-    const updated = assessments.filter(item => item.id !== id);
-    setAssessments(updated);
-    localStorage.setItem(`spt_assessments_${batchId}`, JSON.stringify(updated));
-    toast.success('Assessment deleted successfully!');
+  // Dynamic status computation based on date and completion
+  const getComputedStatus = (item) => {
+    const isDone = !!completedAssessments[item.id];
+    if (isDone) return 'COMPLETED';
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const assDateStr = item.assessmentDate;
+
+    if (item.status === 'COMPLETED') return 'COMPLETED';
+    if (item.status === 'ONGOING') return 'ONGOING';
+    if (item.status === 'UPCOMING') return 'UPCOMING';
+
+    if (!assDateStr) return 'UPCOMING';
+    if (assDateStr > todayStr) return 'UPCOMING';
+    if (assDateStr === todayStr) return 'ONGOING';
+    return 'COMPLETED';
   };
 
   const filtered = assessments.filter(item =>
@@ -205,18 +206,23 @@ export default function Assessments() {
 
   return (
     <div className="flex flex-col gap-6 font-sans">
-      <div className="page-header">
+      {/* Header */}
+      <div className="page-header flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="page-title">{isStudent ? 'My Academic Assessments' : 'Assessment & Test Management'}</h1>
           <p className="page-subtitle">
-            {isStudent ? 'View scheduled technical quizzes and take your active module evaluations' : 'Schedule quizzes, term tests, and evaluate student technical skills'}
+            {isStudent
+              ? 'View scheduled monthly assessments and take your active evaluations.'
+              : 'Schedule quizzes, monthly exams, and evaluate student technical skills.'}
           </p>
         </div>
 
+        {/* READ ONLY BATCH DISPLAY FOR STUDENT */}
         {isStudent ? (
-          <div className="flex items-center gap-2 px-3.5 py-2 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold border border-blue-200 shadow-2xs">
-            <Lock size={14} className="text-blue-600" />
-            <span>Student Assessment Portal</span>
+          <div className="flex items-center gap-2 px-3.5 py-2 bg-gray-100/90 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 shadow-2xs select-none">
+            <span className="text-gray-500 font-medium">Assigned Batch:</span>
+            <span className="font-mono text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded font-extrabold">{batchId}</span>
+            <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider bg-gray-200/80 px-1.5 py-0.5 rounded">READ ONLY</span>
           </div>
         ) : (
           <button onClick={handleOpenCreateModal} className="btn-primary shadow-md shadow-red-200 font-bold">
@@ -226,7 +232,7 @@ export default function Assessments() {
         )}
       </div>
 
-      {/* Filter Bar */}
+      {/* Search & Filter Bar */}
       <div className="card p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="relative w-full sm:w-80">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -235,88 +241,136 @@ export default function Assessments() {
             placeholder="Search by title or subject..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="form-input pl-10"
+            className="form-input pl-10 text-xs"
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <span className="text-xs font-semibold text-gray-500 whitespace-nowrap">Batch ID:</span>
-          <input
-            type="text"
-            value={batchId}
-            onChange={(e) => setBatchId(e.target.value)}
-            placeholder="Enter Batch ID..."
-            className="form-input text-xs font-mono font-bold text-red-700 bg-red-50/50 border-red-200 w-36"
-          />
-        </div>
+        {/* Trainer Batch Input (Faculty only) */}
+        {!isStudent && (
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <span className="text-xs font-semibold text-gray-500 whitespace-nowrap">Batch ID:</span>
+            <input
+              type="text"
+              value={batchId}
+              onChange={(e) => fetchAssessments()}
+              placeholder="Batch ID..."
+              className="form-input text-xs font-mono font-bold text-red-700 bg-red-50/50 border-red-200 w-36"
+            />
+          </div>
+        )}
       </div>
 
-      {/* Table */}
+      {/* UPDATED TABLE: TITLE | SUBJECT | TOTAL MARKS | DURATION | MONTHLY ASSESSMENT DATE | STATUS | ACTIONS */}
       <div className="card overflow-hidden">
         <div className="table-wrapper">
           <table className="table">
             <thead>
               <tr>
-                <th>Title</th>
-                <th>Subject</th>
-                <th>Total Marks</th>
-                <th>Duration</th>
-                <th>Test Date</th>
-                <th>Last Submission</th>
-                <th>Status</th>
-                <th className="text-right">Actions</th>
+                <th>TITLE</th>
+                <th>SUBJECT</th>
+                <th>TOTAL MARKS</th>
+                <th>DURATION</th>
+                <th>MONTHLY ASSESSMENT DATE</th>
+                <th>STATUS</th>
+                <th className="text-right">ACTIONS</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-12">
+                  <td colSpan="7" className="text-center py-12">
                     <div className="spinner w-8 h-8 border-red-600 mx-auto" />
+                    <p className="text-xs text-gray-400 mt-2">Loading academic assessments...</p>
                   </td>
                 </tr>
               ) : filtered.length > 0 ? (
                 filtered.map((item) => {
-                  const isDone = !!completedAssessments[item.id];
+                  const computedStatus = getComputedStatus(item);
+                  const isDone = !!completedAssessments[item.id] || computedStatus === 'COMPLETED';
+
                   return (
                     <tr key={item.id}>
+                      {/* TITLE */}
                       <td>
                         <p className="font-bold text-gray-900">{item.title}</p>
                         <p className="text-xs text-gray-400 line-clamp-1">{item.description}</p>
                       </td>
-                      <td><span className="badge-blue">{item.subject}</span></td>
-                      <td className="font-semibold">{item.totalMarks} pts</td>
+
+                      {/* SUBJECT */}
+                      <td><span className="badge-blue font-bold">{item.subject}</span></td>
+
+                      {/* TOTAL MARKS */}
+                      <td className="font-bold text-gray-900">{item.totalMarks} pts</td>
+
+                      {/* DURATION */}
                       <td>
-                        <span className="flex items-center gap-1 text-xs text-gray-600">
+                        <span className="flex items-center gap-1 text-xs text-gray-600 font-semibold">
                           <Clock size={13} className="text-red-500" />
                           {item.durationInMinutes} mins
                         </span>
                       </td>
-                      <td className="text-xs font-semibold text-gray-700">{item.assessmentDate}</td>
-                      <td className="text-xs text-red-600 font-semibold">{item.lastSubmissionDate || 'N/A'}</td>
-                      <td>
-                        <span className={`badge ${
-                          item.status === 'COMPLETED' ? 'badge-green' :
-                          item.status === 'ONGOING' ? 'badge-blue' : 'badge-yellow'
-                        }`}>
-                          {item.status || 'UPCOMING'}
+
+                      {/* MONTHLY ASSESSMENT DATE */}
+                      <td className="text-xs font-bold text-gray-800">
+                        <span className="flex items-center gap-1.5">
+                          <Calendar size={13} className="text-blue-600" />
+                          {item.assessmentDate ? new Date(item.assessmentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Scheduled'}
                         </span>
                       </td>
+
+                      {/* STATUS */}
+                      <td>
+                        {computedStatus === 'ONGOING' && (
+                          <span className="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800 flex items-center gap-1 w-fit animate-pulse">
+                            <span className="w-2 h-2 rounded-full bg-emerald-600" /> ONGOING
+                          </span>
+                        )}
+                        {computedStatus === 'UPCOMING' && (
+                          <span className="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800 flex items-center gap-1 w-fit">
+                            <Clock size={12} /> UPCOMING
+                          </span>
+                        )}
+                        {computedStatus === 'COMPLETED' && (
+                          <span className="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-gray-100 text-gray-700 border border-gray-200 flex items-center gap-1 w-fit">
+                            <CheckCircle2 size={12} className="text-emerald-600" /> COMPLETED
+                          </span>
+                        )}
+                      </td>
+
+                      {/* ACTIONS */}
                       <td className="text-right">
                         {isStudent ? (
-                          isDone ? (
-                            <span className="badge-green inline-flex items-center gap-1 py-1 px-2.5 font-bold text-xs">
-                              <CheckCircle2 size={13} /> Score: {completedAssessments[item.id].score}/{item.totalMarks}
-                            </span>
-                          ) : (
+                          computedStatus === 'ONGOING' ? (
                             <button
                               onClick={() => handleOpenTakeModal(item)}
-                              className="btn bg-indigo-600 text-white hover:bg-indigo-700 font-bold text-xs py-1.5 px-3 rounded-lg shadow-sm flex items-center gap-1.5 ml-auto"
+                              className="btn bg-indigo-600 text-white hover:bg-indigo-700 font-bold text-xs py-1.5 px-3.5 rounded-lg shadow-sm flex items-center gap-1.5 ml-auto"
                             >
                               <Play size={13} />
                               <span>Take Test</span>
                             </button>
+                          ) : computedStatus === 'UPCOMING' ? (
+                            <button
+                              disabled
+                              title={`Test available on ${item.assessmentDate}`}
+                              className="btn bg-gray-100 text-gray-400 border border-gray-200 font-bold text-xs py-1.5 px-3 rounded-lg cursor-not-allowed flex items-center gap-1.5 ml-auto"
+                            >
+                              <Clock size={13} />
+                              <span>Take Test</span>
+                            </button>
+                          ) : (
+                            // COMPLETED STATUS
+                            completedAssessments[item.id] ? (
+                              <span className="badge-green inline-flex items-center gap-1 py-1 px-2.5 font-bold text-xs ml-auto">
+                                <CheckCircle2 size={13} /> View Result ({completedAssessments[item.id].score}/{item.totalMarks})
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-lg bg-gray-100 text-gray-500 border border-gray-200 font-semibold text-xs inline-flex items-center gap-1 ml-auto">
+                                View Result
+                              </span>
+                            )
                           )
                         ) : (
+                          // FACULTY ACTIONS
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => handleOpenEditModal(item)}
@@ -340,11 +394,11 @@ export default function Assessments() {
                 })
               ) : (
                 <tr>
-                  <td colSpan="8">
+                  <td colSpan="7">
                     <div className="empty-state">
                       <div className="empty-icon"><FileText size={32} /></div>
                       <h4 className="text-sm font-bold text-gray-700">No Assessments Scheduled</h4>
-                      <p className="text-xs text-gray-400 max-w-sm">No assessments found for Batch '{batchId}'.</p>
+                      <p className="text-xs text-gray-400 max-w-sm">No monthly assessments found for Batch '{batchId}'.</p>
                     </div>
                   </td>
                 </tr>
@@ -357,10 +411,10 @@ export default function Assessments() {
       {/* STUDENT TAKE ASSESSMENT MODAL */}
       {takeModalOpen && isStudent && targetAssessment && (
         <div className="modal-backdrop">
-          <div className="modal">
+          <div className="modal max-w-2xl">
             <div className="modal-header bg-indigo-50">
               <div>
-                <h3 className="text-base font-bold text-indigo-900">Take Assessment Examination</h3>
+                <h3 className="text-base font-bold text-indigo-900">Take Monthly Assessment</h3>
                 <p className="text-xs text-indigo-700">{targetAssessment.title} • {targetAssessment.durationInMinutes} Mins • {targetAssessment.totalMarks} Marks</p>
               </div>
               <button onClick={() => setTakeModalOpen(false)} className="text-gray-400 hover:text-gray-600">
@@ -371,11 +425,11 @@ export default function Assessments() {
             <form onSubmit={handleStudentSubmitAnswers}>
               <div className="modal-body flex flex-col gap-4">
                 <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 flex flex-col gap-3">
-                  <p className="text-xs font-bold text-gray-800">Q1. Explain the primary architecture and principles of {targetAssessment.subject} in Spring / React applications?</p>
+                  <p className="text-xs font-bold text-gray-800">Q1. Explain the primary architecture and implementation concepts of {targetAssessment.subject}?</p>
                   <textarea
                     rows="3"
                     required
-                    placeholder="Type your detailed answer response..."
+                    placeholder="Type your answer response..."
                     value={studentAnswers.q1 || ''}
                     onChange={(e) => setStudentAnswers({ ...studentAnswers, q1: e.target.value })}
                     className="form-textarea text-xs"
@@ -383,7 +437,7 @@ export default function Assessments() {
                 </div>
 
                 <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 flex flex-col gap-3">
-                  <p className="text-xs font-bold text-gray-800">Q2. Write a code sample or explain design patterns for {targetAssessment.subject} module implementation?</p>
+                  <p className="text-xs font-bold text-gray-800">Q2. Write code snippet or design pattern for {targetAssessment.subject} module?</p>
                   <textarea
                     rows="3"
                     required
@@ -415,7 +469,7 @@ export default function Assessments() {
           <div className="modal">
             <div className="modal-header">
               <h3 className="text-base font-bold text-gray-800">
-                {editingId ? 'Edit Assessment' : 'Create New Assessment'}
+                {editingId ? 'Edit Monthly Assessment' : 'Create Monthly Assessment'}
               </h3>
               <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-gray-600">
                 <X size={20} />
@@ -487,27 +541,15 @@ export default function Assessments() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="form-group">
-                    <label className="form-label">Assessment Date</label>
-                    <input
-                      type="date"
-                      required
-                      value={formData.assessmentDate}
-                      onChange={(e) => setFormData({ ...formData, assessmentDate: e.target.value })}
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Last Submission Date</label>
-                    <input
-                      type="date"
-                      required
-                      value={formData.lastSubmissionDate}
-                      onChange={(e) => setFormData({ ...formData, lastSubmissionDate: e.target.value })}
-                      className="form-input"
-                    />
-                  </div>
+                <div className="form-group">
+                  <label className="form-label">Monthly Assessment Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={formData.assessmentDate}
+                    onChange={(e) => setFormData({ ...formData, assessmentDate: e.target.value })}
+                    className="form-input"
+                  />
                 </div>
 
                 <div className="form-group">

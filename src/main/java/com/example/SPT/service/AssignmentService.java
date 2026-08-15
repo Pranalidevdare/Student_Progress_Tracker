@@ -5,6 +5,7 @@ import java.util.List;
 import com.example.SPT.dto.request.AssignmentRequest;
 import com.example.SPT.dto.request.AssignmentSubmissionRequest;
 import com.example.SPT.dto.response.AssignmentResponse;
+import com.example.SPT.dto.response.StudentAssignmentResponse;
 
 public interface AssignmentService {
 
@@ -16,6 +17,7 @@ public interface AssignmentService {
 
     List<AssignmentResponse> getAssignmentsByBatch(String batchId);
 
-    void submitAssignment(AssignmentSubmissionRequest request);
+    List<StudentAssignmentResponse> getStudentAssignments(String studentId, String batchId);
 
+    void submitAssignment(AssignmentSubmissionRequest request);
 }

@@ -1,5 +1,10 @@
 import api from './axios';
 
-export const getAllToppers = () => api.get('/api/trainer/toppers');
-export const getToppersByBatch = (batchId) => api.get(`/api/trainer/toppers/batch/${batchId}`);
-export const getTopRankers = (limit) => api.get(`/api/trainer/toppers/top/${limit}`);
+export const getToppersByBatch = (batchId) =>
+  api.get(`/api/student/toppers/batch/${batchId || 'BATCH001'}`);
+
+export const getAllToppers = () =>
+  api.get('/api/student/toppers');
+
+export const getTopRankers = (limit) =>
+  api.get(`/api/student/toppers/top/${limit}`);

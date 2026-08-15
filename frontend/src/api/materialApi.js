@@ -1,5 +1,10 @@
 import api from './axios';
 
+// ─── STUDENT API ENDPOINTS ──────────────────────────────────────
+export const getStudentMaterialsByBatch = (batchId) =>
+  api.get(`/api/student/materials/batch/${batchId}`);
+
+// ─── TRAINER API ENDPOINTS ──────────────────────────────────────
 export const getMaterialsByBatch = (batchId) =>
   api.get(`/api/trainer/materials/batch/${batchId}`);
 

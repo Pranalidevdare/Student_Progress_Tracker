@@ -18,7 +18,6 @@ public class AssignmentSubmissionRequest {
     @NotBlank(message = "Student Id is required")
     private String studentId;
 
-    @NotBlank(message = "Submission File URL is required")
     private String submissionFileUrl;
 
     private String submissionRemarks;

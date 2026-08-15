@@ -211,7 +211,9 @@ export const studentApi = {
   submitFeedback: (data) => api.post('/api/student/feedback', data),
   getGuestSessions: (batchId) => api.get(`/api/student/guest-sessions/batch/${batchId}`),
   getInterview: (studentId) => api.get(`/api/student/interviews/${studentId}`),
-  getToppers: () => api.get('/api/student/toppers')
+  getToppers: () => api.get('/api/student/toppers'),
+  getProfile: () => api.get('/students/me'),
+  updateProfile: (data) => api.put('/students/me', data)
 };
 
 export default api;

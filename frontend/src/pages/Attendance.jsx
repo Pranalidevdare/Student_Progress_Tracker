@@ -298,13 +298,20 @@ export default function Attendance() {
 
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-gray-500">Batch ID:</span>
-          <input
-            type="text"
-            value={batchId}
-            onChange={(e) => setBatchId(e.target.value)}
-            placeholder="Batch ID..."
-            className="form-input text-xs font-mono font-bold text-red-700 bg-red-50/50 border-red-200 w-36"
-          />
+          {isStudent ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100/90 border border-gray-200 rounded-xl text-xs select-none">
+              <span className="font-mono font-bold text-red-700">{batchId}</span>
+              <span className="text-[10px] text-gray-500 font-extrabold uppercase bg-gray-200/70 px-1.5 py-0.5 rounded tracking-wider">READ ONLY</span>
+            </div>
+          ) : (
+            <input
+              type="text"
+              value={batchId}
+              onChange={(e) => setBatchId(e.target.value)}
+              placeholder="Batch ID..."
+              className="form-input text-xs font-mono font-bold text-red-700 bg-red-50/50 border-red-200 w-36"
+            />
+          )}
         </div>
       </div>
 

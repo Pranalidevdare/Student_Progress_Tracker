@@ -28,7 +28,8 @@ export const AuthProvider = ({ children }) => {
 
   const loginUser = (data, meta = null) => {
     const userData = {
-      id: data.id || meta?.id || localStorage.getItem('trainerId') || '650123456789abcdef012345',
+      id: data.id || data.studentId || meta?.id || data.email,
+      studentId: data.studentId || data.id,
       email: data.email,
       fullName: data.fullName,
       role: data.role,

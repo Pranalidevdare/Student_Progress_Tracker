@@ -18,7 +18,9 @@ import {
   Home,
   X,
   LogOut,
-  AlertCircle
+  AlertCircle,
+  Code,
+  Brain
 } from 'lucide-react';
 
 export default function Sidebar({ isOpen, onClose }) {
@@ -115,22 +117,47 @@ export default function Sidebar({ isOpen, onClose }) {
               <span className="truncate">{isStudent ? 'My Academic Profile' : isAdmin ? 'Admin Profile' : 'Trainer Profile'}</span>
             </NavLink>
 
-            {/* MODULES VISIBLE TO STUDENT AND TRAINER */}
-            {(!isAdmin) && (
+            {/* STUDENT SPECIFIC ACADEMICS SESSION LINKS */}
+            {isStudent && (
               <>
-                <NavLink to="/assignments" onClick={handleLinkClick} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                  <ClipboardList size={18} className="flex-shrink-0" />
-                  <span className="truncate">{isStudent ? 'My Assignments' : 'Manage Assignments'}</span>
+                <NavLink to="/technical-session" onClick={handleLinkClick} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                  <Code size={18} className="flex-shrink-0" />
+                  <span className="truncate">Technical Session</span>
                 </NavLink>
 
-                <NavLink to="/assessments" onClick={handleLinkClick} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                  <FileText size={18} className="flex-shrink-0" />
-                  <span className="truncate">{isStudent ? 'My Assessments' : 'Manage Assessments'}</span>
+                <NavLink to="/soft-skill-session" onClick={handleLinkClick} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                  <Brain size={18} className="flex-shrink-0" />
+                  <span className="truncate">Soft Skill Session</span>
                 </NavLink>
 
                 <NavLink to="/attendance" onClick={handleLinkClick} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
                   <CalendarCheck size={18} className="flex-shrink-0" />
-                  <span className="truncate">{isStudent ? 'My Attendance' : 'Mark Attendance'}</span>
+                  <span className="truncate">My Attendance</span>
+                </NavLink>
+              </>
+            )}
+
+            {/* TRAINER MANAGEMENT LINKS */}
+            {isTrainer && (
+              <>
+                <NavLink to="/assignments" onClick={handleLinkClick} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                  <ClipboardList size={18} className="flex-shrink-0" />
+                  <span className="truncate">Manage Assignments</span>
+                </NavLink>
+
+                <NavLink to="/assessments" onClick={handleLinkClick} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                  <FileText size={18} className="flex-shrink-0" />
+                  <span className="truncate">Manage Assessments</span>
+                </NavLink>
+
+                <NavLink to="/attendance" onClick={handleLinkClick} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                  <CalendarCheck size={18} className="flex-shrink-0" />
+                  <span className="truncate">Mark Attendance</span>
+                </NavLink>
+
+                <NavLink to="/materials" onClick={handleLinkClick} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                  <BookOpen size={18} className="flex-shrink-0" />
+                  <span className="truncate">Upload Materials</span>
                 </NavLink>
               </>
             )}
@@ -141,14 +168,9 @@ export default function Sidebar({ isOpen, onClose }) {
               <span className="truncate">{isAdmin ? 'Post Announcements' : 'Notices & Announcements'}</span>
             </NavLink>
 
-            {/* STUDY MATERIALS & GUEST SESSIONS & MOCK INTERVIEWS */}
+            {/* GUEST SESSIONS & MOCK INTERVIEWS & ANALYTICS */}
             {(!isAdmin) && (
               <>
-                <NavLink to="/materials" onClick={handleLinkClick} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                  <BookOpen size={18} className="flex-shrink-0" />
-                  <span className="truncate">{isStudent ? 'Study Materials' : 'Upload Materials'}</span>
-                </NavLink>
-
                 <NavLink to="/guest-sessions" onClick={handleLinkClick} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
                   <Video size={18} className="flex-shrink-0" />
                   <span className="truncate">{isStudent ? 'Guest Sessions' : 'Manage Guest Sessions'}</span>

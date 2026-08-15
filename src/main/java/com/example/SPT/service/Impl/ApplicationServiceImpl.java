@@ -352,6 +352,11 @@ public class ApplicationServiceImpl implements ApplicationService {
         student.setSelectionStatus(
                 SelectionStatus.SELECTED);
 
+        if (student.getStudentId() == null || student.getStudentId().isBlank()) {
+            long count = studentRepository.count();
+            student.setStudentId(String.format("STU%03d", count + 1));
+        }
+
         LocalDateTime now =
                 LocalDateTime.now();
 

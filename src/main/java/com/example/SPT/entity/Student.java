@@ -21,6 +21,8 @@ public class Student {
     @Id
     private String id;
 
+    private String studentId;
+
     // Personal Details
     private String firstName;
     private String lastName;

@@ -24,8 +24,11 @@ public class StudentAssignmentController {
     public ResponseEntity<List<AssignmentResponse>> getAssignments(
             @PathVariable String batchId) {
 
-        return ResponseEntity.ok(
-                assignmentService.getAssignmentsByBatch(batchId));
+        System.out.println("Student assignment request received. batchId=" + batchId);
+        List<AssignmentResponse> assignments = assignmentService.getAssignmentsByBatch(batchId);
+        System.out.println("Assignments found: " + assignments.size());
+
+        return ResponseEntity.ok(assignments);
     }
 
     @PostMapping("/submit")
@@ -36,5 +39,4 @@ public class StudentAssignmentController {
 
         return ResponseEntity.ok("Assignment submitted successfully.");
     }
-
 }

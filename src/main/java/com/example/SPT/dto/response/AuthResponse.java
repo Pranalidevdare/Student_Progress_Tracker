@@ -16,9 +16,14 @@ public class AuthResponse {
 
     private String token;
 
+    @Builder.Default
     private String type = "Bearer";
 
     private String message;
+
+    private String id;
+
+    private String studentId;
 
     private String email;
 

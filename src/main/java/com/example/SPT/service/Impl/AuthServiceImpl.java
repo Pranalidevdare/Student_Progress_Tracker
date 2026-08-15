@@ -21,25 +21,32 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 
 import com.example.SPT.security.JwtService;
 
+import com.example.SPT.enums.Role;
+import com.example.SPT.entity.Student;
+import com.example.SPT.repository.StudentRepository;
+import java.util.Optional;
+
 @Service
 public class AuthServiceImpl implements AuthService {
 
-	
 	private final AuthenticationManager authenticationManager;
 	private final JwtService jwtService;
     private final UserRepository userRepository;
+    private final StudentRepository studentRepository;
     private final PasswordEncoder passwordEncoder;
 
     public AuthServiceImpl(UserRepository userRepository,
+            StudentRepository studentRepository,
             PasswordEncoder passwordEncoder,
             AuthenticationManager authenticationManager,
             JwtService jwtService) {
 
-this.userRepository = userRepository;
-this.passwordEncoder = passwordEncoder;
-this.authenticationManager = authenticationManager;
-this.jwtService = jwtService;
-}
+        this.userRepository = userRepository;
+        this.studentRepository = studentRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.authenticationManager = authenticationManager;
+        this.jwtService = jwtService;
+    }
 
     @Override
     public AuthResponse register(RegisterRequest request) {
@@ -68,6 +75,7 @@ this.jwtService = jwtService;
 
         return AuthResponse.builder()
                 .message("Registration Successful")
+                .id(user.getId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .role(user.getRole())
@@ -95,9 +103,26 @@ this.jwtService = jwtService;
 
         String token = jwtService.generateToken(user.getEmail());
 
+        String resolvedId = user.getId();
+        String resolvedStudentId = null;
+
+        if ((user.getRole() == Role.STUDENT || "STUDENT".equalsIgnoreCase(String.valueOf(user.getRole()))) && studentRepository != null) {
+            Optional<Student> sOpt = studentRepository.findByEmail(user.getEmail());
+            if (!sOpt.isPresent() && user.getEmail() != null) {
+                sOpt = studentRepository.findByEmail(user.getEmail().toLowerCase());
+            }
+            if (sOpt.isPresent()) {
+                Student s = sOpt.get();
+                resolvedId = s.getId();
+                resolvedStudentId = s.getStudentId();
+            }
+        }
+
         return AuthResponse.builder()
                 .token(token)
                 .message("Login Successful")
+                .id(resolvedId)
+                .studentId(resolvedStudentId)
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .role(user.getRole())

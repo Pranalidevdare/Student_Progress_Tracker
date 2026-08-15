@@ -17,4 +17,8 @@ public class AssessmentSubmissionRequest {
 
     @NotBlank(message = "Student Id is required")
     private String studentId;
+
+    private String submissionFileUrl;
+
+    private String submissionRemarks;
 }

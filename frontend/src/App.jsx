@@ -17,6 +17,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import Profile from './pages/Profile';
 import Assignments from './pages/Assignments';
 import Assessments from './pages/Assessments';
+import TechnicalSession from './pages/TechnicalSession';
+import SoftSkillSession from './pages/SoftSkillSession';
 import Attendance from './pages/Attendance';
 import Notices from './pages/Notices';
 import Materials from './pages/Materials';
@@ -65,6 +67,8 @@ export default function App() {
             <Route path="/student/dashboard" element={<StudentDashboard />} />
 
             <Route path="/profile" element={<Profile />} />
+            <Route path="/technical-session/*" element={<TechnicalSession />} />
+            <Route path="/soft-skill-session/*" element={<SoftSkillSession />} />
             <Route path="/assignments" element={<Assignments />} />
             <Route path="/assessments" element={<Assessments />} />
             <Route path="/attendance" element={<Attendance />} />

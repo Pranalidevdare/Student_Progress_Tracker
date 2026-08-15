@@ -40,6 +40,7 @@ public class StudentMapper {
 
         return StudentResponse.builder()
                 .id(student.getId())
+                .studentId(student.getStudentId() != null ? student.getStudentId() : student.getId())
                 .firstName(student.getFirstName())
                 .lastName(student.getLastName())
                 .email(student.getEmail())

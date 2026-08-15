@@ -31,25 +31,24 @@ public class Feedback {
     // Batch Details
     private String batchId;
 
-    // Feedback Details
+    // Feedback & Query Details
     private Integer rating;
-
+    private Double overallRating;
     private String subject;
-
     private String comments;
-
-    /**
-     * PENDING
-     * REVIEWED
-     */
-    private String status;
-
-    // Trainer Response (Optional)
+    private String status; // PENDING, REVIEWED, OPEN, IN_PROGRESS, RESOLVED
     private String trainerResponse;
+
+    // Additional Context
+    private String trainerType; // TECHNICAL or SOFT_SKILL
+    private String direction;   // STUDENT_TO_TRAINER, TRAINER_TO_STUDENT, or QUERY
+    private String strengths;
+    private String areasForImprovement;
+    private String trainerRemarks;
+    private String sessionTitle;
 
     // Audit Fields
     private LocalDateTime createdAt;
-
     private LocalDateTime updatedAt;
 
 }

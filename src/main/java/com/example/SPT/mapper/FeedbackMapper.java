@@ -22,10 +22,19 @@ public class FeedbackMapper {
                 .trainerName(feedback.getTrainerName())
                 .batchId(feedback.getBatchId())
                 .rating(feedback.getRating())
+                .overallRating(feedback.getOverallRating())
                 .subject(feedback.getSubject())
                 .comments(feedback.getComments())
                 .status(feedback.getStatus())
                 .trainerResponse(feedback.getTrainerResponse())
+                .trainerType(feedback.getTrainerType())
+                .direction(feedback.getDirection())
+                .strengths(feedback.getStrengths())
+                .areasForImprovement(feedback.getAreasForImprovement())
+                .trainerRemarks(feedback.getTrainerRemarks())
+                .sessionTitle(feedback.getSessionTitle())
+                .createdAt(feedback.getCreatedAt())
+                .updatedAt(feedback.getUpdatedAt())
                 .build();
     }
 }

@@ -1,10 +1,7 @@
-package com.example.SPT.entity;
+package com.example.SPT.dto.response;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,49 +12,37 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(collection = "assignments")
-public class Assignment {
-
-    @Id
-    private String id;
-
-    // Trainer Details
-    private String trainerId;
-    private String trainerName;
-
-    // Batch Details
-    private String batchId;
+public class StudentAssignmentResponse {
 
     // Assignment Details
+    private String id;
+    private String trainerId;
+    private String trainerName;
+    private String batchId;
     private String title;
     private String description;
     private String subject;
-
-    // Marks
     private Integer totalMarks;
-
-    // Dates
     private LocalDate assignedDate;
     private LocalDate dueDate;
-
-    // Attachment
     private String attachmentUrl;
-
-    /**
-     * TEXT
-     * FILE
-     * TEXT_AND_FILE
-     * NONE
-     */
     private String submissionType;
 
+    // Student Specific Submission Details
+    private String submissionId;
+    private String submissionFileUrl;
+    private String submissionRemarks;
+    private LocalDateTime submittedAt;
+    private Integer obtainedMarks;
+    private String trainerRemarks;
+
     /**
-     * ACTIVE
-     * CLOSED
+     * Computed Status:
+     * PENDING
+     * SUBMITTED
+     * UNDER_EVALUATION
+     * EVALUATED
+     * OVERDUE
      */
     private String status;
-
-    // Audit Fields
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 }
