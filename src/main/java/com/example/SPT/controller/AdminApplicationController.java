@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.SPT.dto.request.ApplicationStatusUpdateRequest;
 import com.example.SPT.dto.request.ApplicationUpdateRequest;
+import com.example.SPT.dto.request.BatchAssignmentRequest;
 import com.example.SPT.dto.response.ApplicationResponse;
 import com.example.SPT.enums.ApplicationStatus;
 import com.example.SPT.service.ApplicationService;
@@ -148,6 +149,28 @@ public class AdminApplicationController {
 
         return ResponseEntity.noContent().build();
     }
+
+    /**
+     * Assign a batch to an application
+     */
+    @PostMapping("/assign-batch")
+    public ResponseEntity<ApplicationResponse> assignBatch(
+            @Valid @RequestBody BatchAssignmentRequest request) {
+        
+        ApplicationResponse response = applicationService.assignBatch(request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Change/reassign batch for an application
+     */
+    @PatchMapping("/change-batch")
+    public ResponseEntity<ApplicationResponse> changeBatch(
+            @Valid @RequestBody BatchAssignmentRequest request) {
+        
+        ApplicationResponse response = applicationService.changeBatch(request);
+        return ResponseEntity.ok(response);
+    }
     
  // CREATE STUDENT FROM SELECTED APPLICATION
 
@@ -200,6 +223,7 @@ public class AdminApplicationController {
                 + "  <p>The Information Technology Excellence Program (ITEP) is designed to provide comprehensive training in various aspects of information technology over the course of one year. Through a combination of theoretical knowledge and practical hands-on experience, you will gain valuable insights into different tech stacks, latest technologies and industry trends. During the course, you will be guided by experienced instructors who are committed to your success.</p>"
                 + "  <p>Please refer to the program schedule and other relevant information. We kindly request you to ensure your availability for the commencement of the program.</p>"
                 + "  <div class=\"details-box\">"
+                + "    <p style=\"margin: 5px 0;\"><strong>Batch :</strong> " + (app.getAssignedBatchName() != null ? app.getAssignedBatchName() : "N/A") + "</p>"
                 + "    <p style=\"margin: 5px 0;\"><strong>Batch Start Date :</strong> Monday, " + currentDate + "</p>"
                 + "    <p style=\"margin: 5px 0;\"><strong>Address :</strong> InfoBeans Foundation , Pune / ISBM College of Engineering . 4th Floor . Survey No.44/1/2, Taluka Mulshi, Pashan Sus Road, Nande, Maharashtra 412115</p>"
                 + "    <p style=\"margin: 5px 0;\"><strong>Contact Person :</strong> Omkar Patankar Sir, Mobile: 9981336599</p>"

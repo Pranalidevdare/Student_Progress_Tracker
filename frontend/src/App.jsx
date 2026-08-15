@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import LandingPage from './pages/LandingPage';
 import RegistrationPage from './pages/public/RegistrationPage';
 import AptitudeTestPage from './pages/public/AptitudeTestPage';
+import AptitudeResultPage from './pages/public/AptitudeResultPage';
 import DocumentationPage from './pages/public/DocumentationPage';
 import SelectionStatusPage from './pages/public/SelectionStatusPage';
 
@@ -45,6 +46,8 @@ export default function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/registration" element={<RegistrationPage />} />
           <Route path="/aptitude-test" element={<AptitudeTestPage />} />
+          <Route path="/result" element={<AptitudeResultPage />} />
+          <Route path="/aptitude-result" element={<AptitudeResultPage />} />
           <Route path="/documentation" element={<DocumentationPage />} />
           <Route path="/selection-status" element={<SelectionStatusPage />} />
 

@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 
 export default function Toppers() {
   const { user } = useAuth();
-  const defaultBatchId = user?.batchId || localStorage.getItem('batchId') || 'BATCH001';
+  const defaultBatchId = user?.batchId || localStorage.getItem('batchId') || null;
 
   const [activeTab, setActiveTab] = useState('ALL'); // ALL, BATCH, TOP5
   const [batchId, setBatchId] = useState(defaultBatchId);

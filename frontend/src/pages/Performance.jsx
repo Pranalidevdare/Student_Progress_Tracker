@@ -11,12 +11,12 @@ export default function Performance() {
 
   // Roster of Active Batch Students
   const activeStudents = [
-    { id: 'APP20268482', name: 'Jyoti Satkar', batch: 'BATCH001', rank: 1, overall: 96.8, att: 95.0, assg: 96.5, test: 95.0, interview: 98.0 },
-    { id: 'STU7076', name: 'Pranali Devdare', batch: 'BATCH001', rank: 2, overall: 95.5, att: 95.0, assg: 94.0, test: 96.0, interview: 96.0 },
-    { id: 'APP7076', name: 'Rahul Sharma', batch: 'BATCH001', rank: 3, overall: 94.2, att: 100.0, assg: 92.0, test: 94.0, interview: 92.0 },
-    { id: 'APP2026001', name: 'Siddharth Varma', batch: 'BATCH001', rank: 4, overall: 91.5, att: 90.0, assg: 90.0, test: 92.0, interview: 94.0 },
-    { id: 'APP2026002', name: 'Neha Kulkarni', batch: 'BATCH002', rank: 5, overall: 89.4, att: 92.0, assg: 88.0, test: 90.0, interview: 88.0 },
-    { id: 'APP2026003', name: 'Rohan Mehta', batch: 'BATCH002', rank: 6, overall: 87.0, att: 88.0, assg: 86.0, test: 88.0, interview: 86.0 }
+    { id: 'APP20268482', name: 'Jyoti Satkar', batch: null, rank: 1, overall: 96.8, att: 95.0, assg: 96.5, test: 95.0, interview: 98.0 },
+    { id: 'STU7076', name: 'Pranali Devdare', batch: null, rank: 2, overall: 95.5, att: 95.0, assg: 94.0, test: 96.0, interview: 96.0 },
+    { id: 'APP7076', name: 'Rahul Sharma', batch: null, rank: 3, overall: 94.2, att: 100.0, assg: 92.0, test: 94.0, interview: 92.0 },
+    { id: 'APP2026001', name: 'Siddharth Varma', batch: null, rank: 4, overall: 91.5, att: 90.0, assg: 90.0, test: 92.0, interview: 94.0 },
+    { id: 'APP2026002', name: 'Neha Kulkarni', batch: null, rank: 5, overall: 89.4, att: 92.0, assg: 88.0, test: 90.0, interview: 88.0 },
+    { id: 'APP2026003', name: 'Rohan Mehta', batch: null, rank: 6, overall: 87.0, att: 88.0, assg: 86.0, test: 88.0, interview: 86.0 }
   ];
 
   const handleFetch = async (e) => {
@@ -59,7 +59,7 @@ export default function Performance() {
       setPerformanceData({
         studentId: studentSearchInput.toUpperCase(),
         studentName: studentSearchInput,
-        batchId: 'BATCH001',
+        batchId: null,
         rank: 2,
         overallPercentage: 94.5,
         attendancePercentage: 95.0,
@@ -167,7 +167,7 @@ export default function Performance() {
                 </span>
                 <h2 className="text-xl font-extrabold">{performanceData.studentName || 'Student'}</h2>
                 <p className="text-xs text-gray-300 mt-0.5">
-                  Student ID: <span className="font-mono text-red-300 font-bold">{performanceData.studentId}</span> • Batch: {performanceData.batchId || 'BATCH001'}
+                  Student ID: <span className="font-mono text-red-300 font-bold">{performanceData.studentId}</span> • Batch: {performanceData.batchId || 'Not Assigned'}
                 </p>
               </div>
 

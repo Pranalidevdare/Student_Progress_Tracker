@@ -116,7 +116,7 @@ export default function DocumentationPage() {
       }
 
       const status = String(app.status || '');
-      const allowed = ['APTITUDE_PASSED', 'DOCUMENTATION_PENDING', 'DOCUMENTS_REJECTED'];
+      const allowed = ['SUBMITTED', 'APTITUDE_PASSED', 'DOCUMENTATION_PENDING', 'DOCUMENTS_REJECTED'];
       if (!allowed.includes(status)) {
         setIsUnlocked(false);
         setVerified(false);
@@ -161,59 +161,164 @@ export default function DocumentationPage() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    const appRef = candidateId.trim();
-    if (!appRef) {
-      toast.error('Please enter your Application Reference ID');
-      return;
-    }
+  e.preventDefault();
 
-    if (!profile.declarationAccepted) {
-      toast.error('Please accept the declaration before submitting your documents.');
-      return;
-    }
+  const appRef = candidateId.trim();
 
-    const missingDocument = Object.values(documents).some((file) => !file);
-    if (missingDocument) {
-      toast.error('Please upload all required documents before submitting.');
-      return;
-    }
+  if (!appRef) {
+    toast.error('Please enter your Application Reference ID');
+    return;
+  }
 
-    const payload = {
-      ...profile,
-      age: Number(profile.age),
-      dateOfBirth: profile.dateOfBirth,
-      fatherOccupation: profile.fatherOccupation || 'Not specified',
-      motherOccupation: profile.motherOccupation || 'Not specified',
-      mailingPincode: String(profile.mailingPincode || ''),
-      guardianPincode: String(profile.guardianPincode || ''),
-      tenthPassingYear: Number(profile.tenthPassingYear || 0),
-      tenthPercentage: Number(profile.tenthPercentage || 0),
-      twelfthPassingYear: Number(profile.twelfthPassingYear || 0),
-      twelfthPercentage: Number(profile.twelfthPercentage || 0),
-      graduationPassingYear: Number(profile.graduationPassingYear || 0),
-      graduationPercentage: Number(profile.graduationPercentage || 0),
-      postGraduationPassingYear: profile.postGraduationPassingYear ? Number(profile.postGraduationPassingYear) : null,
-      postGraduationPercentage: profile.postGraduationPercentage ? Number(profile.postGraduationPercentage) : null,
-      declarationAccepted: true
-    };
+  if (!profile.declarationAccepted) {
+    toast.error(
+      'Please accept the declaration before submitting your documents.'
+    );
+    return;
+  }
 
-    setSubmitting(true);
-    try {
-      const dbApp = await applicationApi.getByAppNumber(appRef);
-      const resolvedApplicationId = dbApp?.data?.id || applicationId || appRef;
-      await documentationApi.submitDocumentation(resolvedApplicationId, payload, documents);
-      await applicationApi.updateStatus(resolvedApplicationId, 'DOCUMENTS_SUBMITTED');
-      toast.success('Documents uploaded and submitted to the admin verification queue.');
-      setSubmitted(true);
-    } catch (error) {
-      console.error('Document submission failed:', error);
-      const backendMessage = error?.response?.data?.message || error?.response?.data?.error || 'Document upload failed.';
-      toast.error(backendMessage);
-    } finally {
-      setSubmitting(false);
-    }
+  // Only REQUIRED documents
+  const requiredDocuments = {
+    passportPhoto: documents.passportPhoto,
+    aadharDocument: documents.aadharDocument,
+    tenthMarksheet: documents.tenthMarksheet,
+    twelfthMarksheet: documents.twelfthMarksheet,
+    bachelorMarksheet: documents.bachelorMarksheet
   };
+
+  const missingDocument = Object.entries(requiredDocuments)
+    .find(([_, file]) => !file);
+
+  if (missingDocument) {
+    toast.error(
+      `${missingDocument[0]} is required before submitting.`
+    );
+    return;
+  }
+
+  const payload = {
+    ...profile,
+
+    // Convert numeric fields correctly
+    age: Number(profile.age),
+
+    dateOfBirth: profile.dateOfBirth,
+
+    fatherOccupation:
+      profile.fatherOccupation || 'Not specified',
+
+    motherOccupation:
+      profile.motherOccupation || 'Not specified',
+
+    mailingPincode:
+      String(profile.mailingPincode || ''),
+
+    guardianPincode:
+      String(profile.guardianPincode || ''),
+
+    tenthPassingYear:
+      Number(profile.tenthPassingYear),
+
+    tenthPercentage:
+      Number(profile.tenthPercentage),
+
+    twelfthPassingYear:
+      Number(profile.twelfthPassingYear),
+
+    twelfthPercentage:
+      Number(profile.twelfthPercentage),
+
+    graduationPassingYear:
+      profile.graduationPassingYear
+        ? Number(profile.graduationPassingYear)
+        : null,
+
+    graduationPercentage:
+      Number(profile.graduationPercentage),
+
+    postGraduationPassingYear:
+      profile.postGraduationPassingYear
+        ? Number(profile.postGraduationPassingYear)
+        : null,
+
+    postGraduationPercentage:
+      profile.postGraduationPercentage
+        ? Number(profile.postGraduationPercentage)
+        : null,
+
+    declarationAccepted: true
+  };
+
+  console.log('========== DOCUMENTATION SUBMIT ==========');
+  console.log('Application Reference:', appRef);
+  console.log('Application ID:', applicationId);
+  console.log('Payload:', payload);
+  console.log('Documents:', documents);
+
+  setSubmitting(true);
+
+  try {
+    // Resolve the actual MongoDB Application ID
+    const dbApp =
+      await applicationApi.getByAppNumber(appRef);
+
+    const resolvedApplicationId =
+      dbApp?.data?.id ||
+      applicationId;
+
+    if (!resolvedApplicationId) {
+      throw new Error(
+        'Unable to resolve application ID.'
+      );
+    }
+
+    console.log(
+      'Resolved MongoDB Application ID:',
+      resolvedApplicationId
+    );
+
+    // Submit documentation
+    await documentationApi.submitDocumentation(
+      resolvedApplicationId,
+      payload,
+      documents
+    );
+
+    // IMPORTANT:
+    // Do NOT call applicationApi.updateStatus() here.
+    // DocumentationServiceImpl already does it after
+    // successfully saving CandidateDocumentation.
+
+    toast.success(
+      'Documents uploaded and submitted to the admin verification queue.'
+    );
+
+    setSubmitted(true);
+
+  } catch (error) {
+
+    console.error(
+      'Document submission failed:',
+      error
+    );
+
+    console.error(
+      'Backend response:',
+      error?.response?.data
+    );
+
+    const backendMessage =
+      error?.response?.data?.message ||
+      error?.response?.data?.error ||
+      error?.message ||
+      'Document upload failed.';
+
+    toast.error(backendMessage);
+
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   return (
     <Box sx={{ minHeight: '100vh', background: '#f8fafc', py: 5 }}>

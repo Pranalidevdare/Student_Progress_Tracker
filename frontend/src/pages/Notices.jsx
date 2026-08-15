@@ -15,7 +15,7 @@ export default function Notices() {
   const isStudent = roleStr.includes('STUDENT');
 
   const trainerId = user?.id || localStorage.getItem('trainerId') || '650123456789abcdef012345';
-  const defaultBatchId = user?.batchId || localStorage.getItem('batchId') || 'BATCH001';
+  const defaultBatchId = user?.batchId || localStorage.getItem('batchId') || null;
 
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -348,7 +348,7 @@ export default function Notices() {
                   <input
                     type="text"
                     required
-                    placeholder="BATCH001"
+                    placeholder="Enter batch ID"
                     value={formData.batchId}
                     onChange={(e) => setFormData({ ...formData, batchId: e.target.value })}
                     className="form-input"

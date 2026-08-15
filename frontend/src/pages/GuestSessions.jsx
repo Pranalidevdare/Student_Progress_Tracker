@@ -12,7 +12,7 @@ import toast from 'react-hot-toast';
 export default function GuestSessions() {
   const { user } = useAuth();
   const trainerId = user?.id || localStorage.getItem('trainerId') || '650123456789abcdef012345';
-  const defaultBatchId = user?.batchId || localStorage.getItem('batchId') || 'BATCH001';
+  const defaultBatchId = user?.batchId || localStorage.getItem('batchId') || null;
 
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(false);

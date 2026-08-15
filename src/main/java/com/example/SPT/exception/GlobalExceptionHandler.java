@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -11,10 +13,13 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleBadCredentials(BadCredentialsException ex) {
@@ -37,10 +42,8 @@ public class GlobalExceptionHandler {
           .getAllErrors()
           .forEach(error -> {
 
-              String field = ((FieldError) error).getField();
-
+              String field = error instanceof FieldError fieldError ? fieldError.getField() : "global";
               String message = error.getDefaultMessage();
-
               errors.put(field, message);
 
           });
@@ -48,9 +51,49 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        log.error("Bad request payload", ex);
+        ErrorResponse response = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getMessage(),
+                LocalDateTime.now());
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex) {
+        log.error("Illegal backend state", ex);
+        ErrorResponse response = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getMessage(),
+                LocalDateTime.now());
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ErrorResponse> handleMultipartException(MultipartException ex) {
+        log.error("Multipart request processing failed", ex);
+        ErrorResponse response = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Invalid multipart request payload.",
+                LocalDateTime.now());
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
+        log.error("Uploaded file exceeds allowed size", ex);
+        ErrorResponse response = new ErrorResponse(
+                HttpStatus.PAYLOAD_TOO_LARGE.value(),
+                "One or more files are too large.",
+                LocalDateTime.now());
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(response);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(Exception ex) {
-
+        log.error("Unhandled application exception", ex);
         ErrorResponse response = new ErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "Something went wrong",
@@ -59,56 +102,53 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response,
                 HttpStatus.INTERNAL_SERVER_ERROR);
     }
-    
- 
-        @ExceptionHandler(ResourceNotFoundException.class)
-        public ResponseEntity<ErrorResponse> handleResourceNotFound(
-                ResourceNotFoundException ex) {
 
-            ErrorResponse error = new ErrorResponse(
-                    HttpStatus.NOT_FOUND.value(),
-                    ex.getMessage(),
-                    LocalDateTime.now());
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFound(
+            ResourceNotFoundException ex) {
 
-            return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
-        }
-        
-        @ExceptionHandler(AccountDisabledException.class)
-        public ResponseEntity<ErrorResponse> handleAccountDisabled(
-                AccountDisabledException ex) {
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage(),
+                LocalDateTime.now());
 
-            ErrorResponse response = new ErrorResponse(
-                    HttpStatus.FORBIDDEN.value(),
-                    ex.getMessage(),
-                    LocalDateTime.now());
+        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+    }
 
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
-        }
-        
-        @ExceptionHandler(DuplicateResourceException.class)
-        public ResponseEntity<ErrorResponse> handleDuplicateResource(
-                DuplicateResourceException ex) {
+    @ExceptionHandler(AccountDisabledException.class)
+    public ResponseEntity<ErrorResponse> handleAccountDisabled(
+            AccountDisabledException ex) {
 
-            ErrorResponse response = new ErrorResponse(
-                    HttpStatus.CONFLICT.value(),
-                    ex.getMessage(),
-                    LocalDateTime.now());
+        ErrorResponse response = new ErrorResponse(
+                HttpStatus.FORBIDDEN.value(),
+                ex.getMessage(),
+                LocalDateTime.now());
 
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
-        }
-        
-        @ExceptionHandler(ResourceAlreadyExistsException.class)
-        public ResponseEntity<ErrorResponse> handleResourceAlreadyExists(
-                ResourceAlreadyExistsException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
 
-            ErrorResponse error = new ErrorResponse(
-                    HttpStatus.CONFLICT.value(),
-                    ex.getMessage(),
-                    LocalDateTime.now());
+    @ExceptionHandler(DuplicateResourceException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateResource(
+            DuplicateResourceException ex) {
 
-            return new ResponseEntity<>(error, HttpStatus.CONFLICT);
-        }
+        ErrorResponse response = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                ex.getMessage(),
+                LocalDateTime.now());
 
-    
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(ResourceAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponse> handleResourceAlreadyExists(
+            ResourceAlreadyExistsException ex) {
+
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                ex.getMessage(),
+                LocalDateTime.now());
+
+        return new ResponseEntity<>(error, HttpStatus.CONFLICT);
+    }
 
 }

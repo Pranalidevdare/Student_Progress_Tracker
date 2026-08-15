@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom';
 export default function StudentDashboard() {
   const { user } = useAuth();
   const studentId = user?.id || user?.studentId || 'STUDENT001';
-  const batchId = user?.batchId || localStorage.getItem('batchId') || 'BATCH001';
+  const batchId = user?.batchId || localStorage.getItem('batchId') || null;
   const appNumber = user?.applicationNumber || localStorage.getItem('spt_last_app_number') || 'APP7076';
 
   const [candidateData, setCandidateData] = useState(null);

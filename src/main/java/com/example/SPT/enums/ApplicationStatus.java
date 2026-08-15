@@ -38,6 +38,10 @@ public enum ApplicationStatus {
 
     HOME_VISIT_COMPLETED,
 
+    HOME_VISIT_PASSED,
+
+    HOME_VISIT_REJECTED,
+
     SELECTED,
 
     REJECTED,

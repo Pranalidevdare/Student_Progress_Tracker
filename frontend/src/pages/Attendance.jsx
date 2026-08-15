@@ -16,7 +16,7 @@ export default function Attendance() {
   const studentId = user?.id || user?.studentId || user?.applicationNumber || 'STU7076';
   const studentName = isStudent ? (user?.fullName || 'Pranali Devdare') : 'Jyoti Satkar';
   const trainerId = user?.id || localStorage.getItem('trainerId') || '650123456789abcdef012345';
-  const defaultBatchId = user?.batchId || localStorage.getItem('batchId') || 'BATCH001';
+  const defaultBatchId = user?.batchId || localStorage.getItem('batchId') || null;
 
   const [batchId, setBatchId] = useState(defaultBatchId);
   const [records, setRecords] = useState([]);

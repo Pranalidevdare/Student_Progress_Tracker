@@ -51,6 +51,12 @@ public class ApplicationResponse {
 
     private String adminRemarks;
 
+    // Batch Assignment
+
+    private String assignedBatchId;
+
+    private String assignedBatchName;
+
     // Audit
 
     private LocalDateTime createdAt;

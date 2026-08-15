@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getAllTrainers } from '../api/trainerApi';
 import api from '../api/axios';
-import { applicationApi, aptitudeApi, adminApi } from '../api/apiServices';
+import { applicationApi, aptitudeApi, adminApi, documentationApi } from '../api/apiServices';
 import {
   ShieldCheck, UserPlus, Users, BookOpen, Layers, Search, X, Check,
   Mail, Phone, FileText, CheckCircle2, XCircle, Calendar, Send, Home, UserCheck, RefreshCw, Filter, Eye, ExternalLink, Trophy, CalendarCheck, Award, TrendingUp, Lock
@@ -26,6 +26,8 @@ export default function AdminDashboard() {
   const [selectedAppIds, setSelectedAppIds] = useState([]);
   const [selectedDocCandidate, setSelectedDocCandidate] = useState(null);
   const [previewingDoc, setPreviewingDoc] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState('');
 
   // Register Trainer Modal
   const [modalOpen, setModalOpen] = useState(false);
@@ -52,7 +54,16 @@ export default function AdminDashboard() {
 
   // Batch Assignment Modal
   const [batchModalOpen, setBatchModalOpen] = useState(false);
-  const [selectedBatchId, setSelectedBatchId] = useState('BATCH001');
+  const [batches, setBatches] = useState([]);
+  const [selectedBatchId, setSelectedBatchId] = useState(null);
+  const [selectedBatchForAssignment, setSelectedBatchForAssignment] = useState(null);
+  const [batchAssignmentCandidate, setBatchAssignmentCandidate] = useState(null);
+  const [batchAssignmentLoading, setBatchAssignmentLoading] = useState(false);
+
+  // Batch Change Modal
+  const [batchChangeModalOpen, setBatchChangeModalOpen] = useState(false);
+  const [batchChangeCandidate, setBatchChangeCandidate] = useState(null);
+  const [newBatchIdForChange, setNewBatchIdForChange] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -68,13 +79,14 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [trainersRes, appsRes, dashboardRes, attendanceRes, studentsRes, toppersRes] = await Promise.allSettled([
+      const [trainersRes, appsRes, dashboardRes, attendanceRes, studentsRes, toppersRes, batchesRes] = await Promise.allSettled([
         getAllTrainers(),
         applicationApi.getAll(),
         adminApi.getDashboard(),
-        api.get('/api/trainer/attendance/batch/BATCH001'),
-        api.get('/api/students'),
-        api.get('/api/student/toppers')
+        api.get('/api/trainer/attendance/batch').catch(() => ({ data: [] })),
+        adminApi.getAllStudents(),
+        api.get('/api/student/toppers'),
+        api.get('/api/batches/active')
       ]);
 
       if (trainersRes.status === 'fulfilled') setTrainers(trainersRes.value.data || []);
@@ -83,6 +95,13 @@ export default function AdminDashboard() {
       if (attendanceRes.status === 'fulfilled') setAttendanceLogs(Array.isArray(attendanceRes.value.data) ? attendanceRes.value.data : []);
       if (studentsRes.status === 'fulfilled') setStudents(Array.isArray(studentsRes.value.data) ? studentsRes.value.data : []);
       if (toppersRes.status === 'fulfilled') setTopRankers(Array.isArray(toppersRes.value.data) ? toppersRes.value.data : []);
+      if (batchesRes.status === 'fulfilled') {
+        const batchList = Array.isArray(batchesRes.value.data) ? batchesRes.value.data : [];
+        setBatches(batchList);
+        if (batchList.length > 0 && !selectedBatchId) {
+          setSelectedBatchId(batchList[0].id);
+        }
+      }
     } catch (err) {
       console.error('Admin dashboard data load failed:', err);
       setApplications([]);
@@ -174,6 +193,103 @@ export default function AdminDashboard() {
     }
   };
 
+  const hydrateDocumentMetadata = async (app) => {
+    if (!app?.id && !app?.applicationNumber) return app;
+
+    try {
+      const response = await documentationApi.getByApplicationId(app.id || app.applicationNumber);
+      const docData = response?.data || {};
+      const applicationId = docData.applicationId || app.applicationId || app.id || app.applicationNumber;
+
+      return {
+        ...app,
+        ...docData,
+        id: app.id || app.applicationNumber || applicationId,
+        applicationId,
+        documentId: docData.id || app.documentId || app.id,
+        applicationNumber: docData.applicationNumber || app.applicationNumber
+      };
+    } catch (error) {
+      console.warn('No documentation metadata found for application:', app?.id || app?.applicationNumber, error);
+      return app;
+    }
+  };
+
+  const documentLabels = {
+    passportPhoto: 'Passport Photo',
+    aadharDocument: 'Aadhaar Card (Govt ID)',
+    tenthMarksheet: '10th Class Marksheet',
+    twelfthMarksheet: '12th Class Marksheet',
+    bachelorMarksheet: 'Graduation Marksheet',
+    masterMarksheet: 'Master Marksheet',
+    familyIncomeCertificate: 'Family Income Certificate'
+  };
+
+  const getDocumentCards = (application) => {
+    if (!application) return [];
+
+    const documentMap = [
+      { key: 'passportPhoto', path: application.passportPhoto, name: application.passportPhotoName },
+      { key: 'aadharDocument', path: application.aadharDocument, name: application.aadharDocumentName },
+      { key: 'tenthMarksheet', path: application.tenthMarksheet, name: application.tenthMarksheetName },
+      { key: 'twelfthMarksheet', path: application.twelfthMarksheet, name: application.twelfthMarksheetName },
+      { key: 'bachelorMarksheet', path: application.bachelorMarksheet, name: application.bachelorMarksheetName },
+      { key: 'masterMarksheet', path: application.masterMarksheet, name: application.masterMarksheetName },
+      { key: 'familyIncomeCertificate', path: application.familyIncomeCertificate, name: application.familyIncomeCertificateName }
+    ];
+
+    return documentMap
+      .filter(doc => doc.path)
+      .map(doc => ({
+        ...doc,
+        label: documentLabels[doc.key] || doc.key,
+        file: doc.name || doc.path.split('/').pop(),
+        fetchUrl: documentationApi.getDocumentFileUrl(application.applicationId || application.id, doc.key)
+      }));
+  };
+
+  const openDocumentPreview = async (document) => {
+    if (!document || !document.fetchUrl) {
+      setPreviewError('Document unavailable');
+      setPreviewingDoc(null);
+      return;
+    }
+
+    setPreviewLoading(true);
+    setPreviewError('');
+    setPreviewingDoc({
+      label: document.label,
+      file: document.file,
+      candidate: selectedDocCandidate?.fullName || 'Candidate',
+      url: document.fetchUrl,
+      contentType: document.contentType || null
+    });
+
+    try {
+      const response = await api.get(document.fetchUrl, { responseType: 'blob' });
+      const blob = response.data;
+      const mimeType = blob.type || response.headers['content-type'] || 'application/octet-stream';
+      const objectUrl = URL.createObjectURL(blob);
+
+      setPreviewingDoc(prev => ({
+        ...prev,
+        url: objectUrl,
+        contentType: mimeType,
+        blobUrl: objectUrl
+      }));
+    } catch (error) {
+      console.error('Document preview failed:', error);
+      setPreviewError('Unable to load document');
+      setPreviewingDoc(prev => ({
+        ...prev,
+        url: null,
+        contentType: null
+      }));
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   const handleBulkFinalSelection = async () => {
     if (selectedAppIds.length === 0) {
       toast.error('Please select at least one candidate for final selection');
@@ -198,17 +314,99 @@ export default function AdminDashboard() {
       toast.error('Please select candidate(s) to send offer letters');
       return;
     }
+
+    if (!selectedBatchId) {
+      toast.error('Please select a batch before sending offer letters');
+      setBatchModalOpen(true);
+      return;
+    }
+
     try {
+      // First, assign batches to all selected applications
+      for (const appId of selectedAppIds) {
+        try {
+          await api.post('/api/admin/applications/assign-batch', {
+            applicationId: appId,
+            batchId: selectedBatchId
+          });
+        } catch (err) {
+          console.warn(`Batch assignment warning for ${appId}:`, err.message);
+          // Continue to next application even if batch assignment fails
+        }
+      }
+
+      // Then create students and send offer letters
       for (const id of selectedAppIds) {
         await applicationApi.createStudent(id);
       }
       toast.success('Personalized Offer Letters generated & emailed successfully!');
       setSelectedAppIds([]);
+      setSelectedBatchId(null);
       fetchData();
     } catch (err) {
+      console.error('Offer letter error:', err);
       toast.success('Offer Letter emails dispatched to selected candidates!');
       setSelectedAppIds([]);
+      setSelectedBatchId(null);
       fetchData();
+    }
+  };
+
+  const handleBatchAssignment = async () => {
+    if (!batchAssignmentCandidate) {
+      toast.error('No candidate selected');
+      return;
+    }
+
+    if (!selectedBatchForAssignment) {
+      toast.error('Please select a batch');
+      return;
+    }
+
+    setBatchAssignmentLoading(true);
+    try {
+      await api.post('/api/admin/applications/assign-batch', {
+        applicationId: batchAssignmentCandidate.id,
+        batchId: selectedBatchForAssignment
+      });
+      toast.success('Batch assigned successfully!');
+      setBatchModalOpen(false);
+      setBatchAssignmentCandidate(null);
+      setSelectedBatchForAssignment(null);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to assign batch');
+    } finally {
+      setBatchAssignmentLoading(false);
+    }
+  };
+
+  const handleBatchChange = async () => {
+    if (!batchChangeCandidate) {
+      toast.error('No candidate selected');
+      return;
+    }
+
+    if (!newBatchIdForChange) {
+      toast.error('Please select a new batch');
+      return;
+    }
+
+    setBatchAssignmentLoading(true);
+    try {
+      await api.patch('/api/admin/applications/change-batch', {
+        applicationId: batchChangeCandidate.id,
+        batchId: newBatchIdForChange
+      });
+      toast.success('Batch changed successfully! Notification email sent.');
+      setBatchChangeModalOpen(false);
+      setBatchChangeCandidate(null);
+      setNewBatchIdForChange(null);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to change batch');
+    } finally {
+      setBatchAssignmentLoading(false);
     }
   };
 
@@ -242,7 +440,7 @@ export default function AdminDashboard() {
     rank: t.rank || idx + 1,
     name: t.studentName || 'Student',
     badge: t.performanceStatus ? t.performanceStatus.replace(/_/g, ' ') : 'TOP PERFORMER',
-    batch: t.batchId || 'BATCH001',
+    batch: t.batchId || 'Not Assigned',
     score: t.overallPercentage != null ? `${Number(t.overallPercentage).toFixed(1)}%` : '0%',
     attendance: 'N/A',
     college: 'MongoDB Data'
@@ -472,7 +670,10 @@ export default function AdminDashboard() {
                         <td>
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => setSelectedDocCandidate(app)}
+                              onClick={async () => {
+                                const hydrated = await hydrateDocumentMetadata(app);
+                                setSelectedDocCandidate(hydrated);
+                              }}
                               className="btn bg-blue-600 text-white hover:bg-blue-700 text-xs py-1 px-2.5 rounded-lg flex items-center gap-1 font-bold"
                             >
                               <Eye size={13} /> View Documents
@@ -562,7 +763,22 @@ export default function AdminDashboard() {
               <p className="text-xs text-gray-400">Assign selected candidates to batches and dispatch offer letters</p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-gray-600">Select Batch:</label>
+                <select
+                  value={selectedBatchId || ''}
+                  onChange={(e) => setSelectedBatchId(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded text-xs bg-white text-gray-700"
+                >
+                  <option value="">-- Select Batch --</option>
+                  {batches.map(batch => (
+                    <option key={batch.id} value={batch.id}>
+                      {batch.batchName} ({batch.courseName}) - Capacity: {batch.capacity} - Available: {batch.capacity - (batch.enrolledCount || 0)}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <button
                 onClick={handleBulkFinalSelection}
                 className="btn bg-emerald-600 text-white hover:bg-emerald-700 text-xs py-1.5 px-3 rounded-lg flex items-center gap-1 font-bold"
@@ -592,6 +808,7 @@ export default function AdminDashboard() {
                       <th>Email</th>
                       <th>Status</th>
                       <th>Assigned Batch</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -604,7 +821,37 @@ export default function AdminDashboard() {
                         <td className="font-semibold text-gray-900 text-xs">{app.fullName}</td>
                         <td className="text-xs font-mono text-gray-600">{app.email}</td>
                         <td><span className="badge-green text-[11px]">{app.status}</span></td>
-                        <td className="font-mono text-xs font-bold text-gray-700">{app.batchId || 'BATCH001'}</td>
+                        <td className="font-mono text-xs font-bold text-gray-700">
+                          {app.assignedBatchName ? (
+                            <span className="bg-green-100 text-green-700 px-2 py-1 rounded">{app.assignedBatchName}</span>
+                          ) : (
+                            <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded">NOT ASSIGNED</span>
+                          )}
+                        </td>
+                        <td className="text-xs">
+                          {app.assignedBatchId ? (
+                            <button
+                              onClick={() => {
+                                setBatchChangeCandidate(app);
+                                setNewBatchIdForChange(app.assignedBatchId);
+                                setBatchChangeModalOpen(true);
+                              }}
+                              className="text-blue-600 hover:text-blue-800 font-semibold"
+                            >
+                              Change
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setBatchAssignmentCandidate(app);
+                                setBatchModalOpen(true);
+                              }}
+                              className="text-green-600 hover:text-green-800 font-semibold"
+                            >
+                              Assign
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -692,21 +939,31 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[
-                    { id: 'STU7076', name: 'Pranali Devdare', email: 'pranali@example.com', batch: 'BATCH001', branch: 'CS / IT', att: '95%', status: 'ACTIVE' },
-                    { id: 'STU7077', name: 'Rahul Sharma', email: 'rahul.sharma@example.com', batch: 'BATCH001', branch: 'Computer Engg', att: '100%', status: 'ACTIVE' },
-                    { id: 'STU7078', name: 'Priya Patel', email: 'priya.patel@example.com', batch: 'BATCH002', branch: 'Information Tech', att: '96%', status: 'ACTIVE' }
-                  ].map(s => (
-                    <tr key={s.id}>
-                      <td className="font-mono text-xs font-bold text-red-600">{s.id}</td>
-                      <td className="font-bold text-gray-900 text-xs">{s.name}</td>
-                      <td className="text-xs font-mono text-gray-600">{s.email}</td>
-                      <td><span className="badge-blue font-mono font-bold text-[11px]">{s.batch}</span></td>
-                      <td className="text-xs text-gray-500">{s.branch}</td>
-                      <td className="font-bold text-emerald-700 text-xs">{s.att}</td>
-                      <td><span className="badge-green text-[11px]">{s.status}</span></td>
+                  {students.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="text-center py-8 text-xs text-gray-500">No enrolled students found.</td>
                     </tr>
-                  ))}
+                  ) : (
+                    students.map((s, idx) => {
+                      const studentName = [s.firstName, s.lastName].filter(Boolean).join(' ') || s.fullName || 'Student';
+                      const batchCode = s.batchId || s.batch || 'N/A';
+                      const branchText = s.branch || s.degree || 'N/A';
+                      const attendance = s.attendance || s.attendancePercentage || '0%';
+                      const status = s.active === false ? 'INACTIVE' : 'ACTIVE';
+
+                      return (
+                        <tr key={s.id || idx}>
+                          <td className="font-mono text-xs font-bold text-red-600">{s.studentId || s.id || `STU${idx + 1}`}</td>
+                          <td className="font-bold text-gray-900 text-xs">{studentName}</td>
+                          <td className="text-xs font-mono text-gray-600">{s.email}</td>
+                          <td><span className="badge-blue font-mono font-bold text-[11px]">{batchCode}</span></td>
+                          <td className="text-xs text-gray-500">{branchText}</td>
+                          <td className="font-bold text-emerald-700 text-xs">{attendance}</td>
+                          <td><span className={status === 'ACTIVE' ? 'badge-green text-[11px]' : 'badge-yellow text-[11px]'}>{status}</span></td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -840,6 +1097,138 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* BATCH ASSIGNMENT MODAL */}
+      {batchModalOpen && (
+        <div className="modal-backdrop">
+          <div className="modal max-w-md">
+            <div className="modal-header bg-blue-600 text-white rounded-t-2xl p-4">
+              <h3 className="text-sm font-bold">Assign Batch to Candidate</h3>
+              <button onClick={() => {
+                setBatchModalOpen(false);
+                setBatchAssignmentCandidate(null);
+                setSelectedBatchForAssignment(null);
+              }}><X size={18} /></button>
+            </div>
+            <div className="modal-body p-5 flex flex-col gap-4">
+              {batchAssignmentCandidate && (
+                <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                  <p className="text-xs text-gray-600"><strong>Candidate:</strong> {batchAssignmentCandidate.fullName}</p>
+                  <p className="text-xs text-gray-600"><strong>App ID:</strong> {batchAssignmentCandidate.applicationNumber}</p>
+                </div>
+              )}
+              <div className="form-group">
+                <label className="form-label">Select Batch</label>
+                <select
+                  value={selectedBatchForAssignment || ''}
+                  onChange={(e) => setSelectedBatchForAssignment(e.target.value)}
+                  className="form-input"
+                >
+                  <option value="">-- Choose Batch --</option>
+                  {batches.map(batch => {
+                    const availableSeats = batch.capacity - (batch.enrolledCount || 0);
+                    return (
+                      <option key={batch.id} value={batch.id} disabled={availableSeats <= 0}>
+                        {batch.batchName} | {batch.courseName} | Available: {availableSeats}/{batch.capacity}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              {selectedBatchForAssignment && batches.find(b => b.id === selectedBatchForAssignment) && (
+                <div className="bg-gray-50 p-3 rounded text-xs">
+                  {(() => {
+                    const batch = batches.find(b => b.id === selectedBatchForAssignment);
+                    return (
+                      <>
+                        <p><strong>Start Date:</strong> {batch.startDate}</p>
+                        <p><strong>Technical Trainer:</strong> {batch.technicalTrainerName || 'TBD'}</p>
+                        <p><strong>Capacity:</strong> {batch.capacity} | <strong>Enrolled:</strong> {batch.enrolledCount || 0}</p>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+            <div className="modal-footer p-4 bg-gray-50 border-t flex justify-end gap-2 rounded-b-2xl">
+              <button onClick={() => {
+                setBatchModalOpen(false);
+                setBatchAssignmentCandidate(null);
+                setSelectedBatchForAssignment(null);
+              }} className="btn-outline">Cancel</button>
+              <button onClick={handleBatchAssignment} disabled={batchAssignmentLoading || !selectedBatchForAssignment} className="btn-primary">
+                {batchAssignmentLoading ? 'Assigning...' : 'Assign Batch'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BATCH CHANGE MODAL */}
+      {batchChangeModalOpen && (
+        <div className="modal-backdrop">
+          <div className="modal max-w-md">
+            <div className="modal-header bg-amber-600 text-white rounded-t-2xl p-4">
+              <h3 className="text-sm font-bold">Change Batch Assignment</h3>
+              <button onClick={() => {
+                setBatchChangeModalOpen(false);
+                setBatchChangeCandidate(null);
+                setNewBatchIdForChange(null);
+              }}><X size={18} /></button>
+            </div>
+            <div className="modal-body p-5 flex flex-col gap-4">
+              {batchChangeCandidate && (
+                <div className="bg-amber-50 p-3 rounded border border-amber-200">
+                  <p className="text-xs text-gray-600"><strong>Candidate:</strong> {batchChangeCandidate.fullName}</p>
+                  <p className="text-xs text-gray-600"><strong>Current Batch:</strong> {batchChangeCandidate.assignedBatchName}</p>
+                </div>
+              )}
+              <div className="form-group">
+                <label className="form-label">Select New Batch</label>
+                <select
+                  value={newBatchIdForChange || ''}
+                  onChange={(e) => setNewBatchIdForChange(e.target.value)}
+                  className="form-input"
+                >
+                  <option value="">-- Choose Batch --</option>
+                  {batches.map(batch => {
+                    const availableSeats = batch.capacity - (batch.enrolledCount || 0);
+                    return (
+                      <option key={batch.id} value={batch.id} disabled={availableSeats <= 0 || batch.id === batchChangeCandidate?.assignedBatchId}>
+                        {batch.batchName} | {batch.courseName} | Available: {availableSeats}/{batch.capacity}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              {newBatchIdForChange && batches.find(b => b.id === newBatchIdForChange) && (
+                <div className="bg-gray-50 p-3 rounded text-xs">
+                  {(() => {
+                    const batch = batches.find(b => b.id === newBatchIdForChange);
+                    return (
+                      <>
+                        <p><strong>New Batch:</strong> {batch.batchName}</p>
+                        <p><strong>Start Date:</strong> {batch.startDate}</p>
+                        <p><strong>Technical Trainer:</strong> {batch.technicalTrainerName || 'TBD'}</p>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+            <div className="modal-footer p-4 bg-gray-50 border-t flex justify-end gap-2 rounded-b-2xl">
+              <button onClick={() => {
+                setBatchChangeModalOpen(false);
+                setBatchChangeCandidate(null);
+                setNewBatchIdForChange(null);
+              }} className="btn-outline">Cancel</button>
+              <button onClick={handleBatchChange} disabled={batchAssignmentLoading || !newBatchIdForChange} className="btn-primary">
+                {batchAssignmentLoading ? 'Changing...' : 'Change Batch'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* REGISTER TRAINER MODAL */}
       {modalOpen && (
         <div className="modal-backdrop">
@@ -910,12 +1299,7 @@ export default function AdminDashboard() {
               <div>
                 <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Uploaded Verification Documents</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {[
-                    { label: 'Aadhaar Card (Govt ID)', file: selectedDocCandidate.aadhaarUrl || 'aadhaar_card_scan.pdf' },
-                    { label: '10th Class Marksheet', file: selectedDocCandidate.tenthMarksheetUrl || '10th_marksheet.pdf' },
-                    { label: '12th Class Marksheet', file: selectedDocCandidate.twelfthMarksheetUrl || '12th_marksheet.pdf' },
-                    { label: 'Graduation Marksheet', file: selectedDocCandidate.graduationMarksheetUrl || 'graduation_marksheet.pdf' }
-                  ].map((doc, idx) => (
+                  {getDocumentCards(selectedDocCandidate).map((doc, idx) => (
                     <div key={idx} className="p-3 border border-gray-200 rounded-xl bg-white flex flex-col justify-between gap-2 shadow-xs">
                       <div>
                         <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
@@ -925,9 +1309,7 @@ export default function AdminDashboard() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          setPreviewingDoc({ label: doc.label, file: doc.file, candidate: selectedDocCandidate.fullName });
-                        }}
+                        onClick={() => openDocumentPreview(doc)}
                         className="btn-outline text-[11px] py-1 px-2.5 flex items-center justify-center gap-1 text-red-600 border-red-200 hover:bg-red-50 font-bold"
                       >
                         <ExternalLink size={12} /> Inspect Document Preview
@@ -951,7 +1333,8 @@ export default function AdminDashboard() {
                 <button
                   type="button"
                   onClick={() => {
-                    handleUpdateAppStatus(selectedDocCandidate.id, 'DOCUMENTS_REJECTED');
+                    const applicationId = selectedDocCandidate.applicationId || selectedDocCandidate.id || selectedDocCandidate.applicationNumber;
+                    handleUpdateAppStatus(applicationId, 'DOCUMENTS_REJECTED');
                     setSelectedDocCandidate(null);
                   }}
                   className="btn bg-red-100 text-red-700 hover:bg-red-200 text-xs py-2 px-4 rounded-xl flex items-center gap-1.5 font-bold flex-1 sm:flex-initial"
@@ -961,7 +1344,8 @@ export default function AdminDashboard() {
                 <button
                   type="button"
                   onClick={() => {
-                    handleUpdateAppStatus(selectedDocCandidate.id, 'DOCUMENTS_VERIFIED');
+                    const applicationId = selectedDocCandidate.applicationId || selectedDocCandidate.id || selectedDocCandidate.applicationNumber;
+                    handleUpdateAppStatus(applicationId, 'DOCUMENTS_VERIFIED');
                     setSelectedDocCandidate(null);
                   }}
                   className="btn bg-emerald-600 text-white hover:bg-emerald-700 text-xs py-2 px-4 rounded-xl flex items-center gap-1.5 font-bold shadow-md shadow-emerald-200 flex-1 sm:flex-initial"
@@ -985,7 +1369,11 @@ export default function AdminDashboard() {
                   Document Preview: {previewingDoc.label}
                 </h3>
               </div>
-              <button onClick={() => setPreviewingDoc(null)} className="text-gray-400 hover:text-white">
+              <button onClick={() => {
+                if (previewingDoc?.blobUrl) URL.revokeObjectURL(previewingDoc.blobUrl);
+                setPreviewingDoc(null);
+                setPreviewError('');
+              }} className="text-gray-400 hover:text-white">
                 <X size={20} />
               </button>
             </div>
@@ -996,51 +1384,38 @@ export default function AdminDashboard() {
                   <span className="text-xs font-bold text-red-900 block">{previewingDoc.candidate}</span>
                   <span className="text-[11px] font-mono text-red-700">{previewingDoc.file}</span>
                 </div>
-                <span className="badge-green text-xs font-bold flex items-center gap-1">
-                  <CheckCircle2 size={12} /> Verified Document
+                <span className="badge-purple text-xs font-bold flex items-center gap-1">
+                  <CheckCircle2 size={12} /> {previewingDoc.contentType ? 'Uploaded Document' : 'Document'}
                 </span>
               </div>
 
-              {/* Document Visual Viewer Box */}
               <div className="bg-slate-900 rounded-xl border border-slate-700 p-4 flex flex-col items-center justify-center min-h-[300px] overflow-hidden shadow-inner">
-                {previewingDoc.file && (previewingDoc.file.endsWith('.pdf') || previewingDoc.file.endsWith('.doc')) ? (
-                  <div className="w-full bg-white rounded-lg p-6 text-gray-900 font-sans shadow-md flex flex-col gap-4">
-                    <div className="flex justify-between items-center border-b pb-3 border-gray-200">
-                      <div className="flex items-center gap-2">
-                        <FileText size={24} className="text-red-600" />
-                        <div>
-                          <h4 className="font-extrabold text-sm text-gray-900">{previewingDoc.label}</h4>
-                          <span className="text-[11px] font-mono text-gray-500">Document Reference: {previewingDoc.file}</span>
-                        </div>
-                      </div>
-                      <span className="badge-green text-xs font-bold px-3 py-1">SEAL VERIFIED</span>
-                    </div>
-
-                    <div className="space-y-2 text-xs text-gray-700 bg-gray-50 p-4 rounded-lg border">
-                      <p><strong>Candidate Name:</strong> {previewingDoc.candidate || 'InfoBeans Applicant'}</p>
-                      <p><strong>Verification Authority:</strong> Government / Educational Board</p>
-                      <p><strong>Verification Status:</strong> Original Copy Verified & Encrypted</p>
-                      <p className="text-[11px] text-emerald-700 font-semibold pt-2 border-t border-gray-200">
-                        ✓ InfoBeans Foundation Verification Audit: Passed (Document ID Authenticated)
-                      </p>
-                    </div>
+                {previewLoading ? (
+                  <div className="text-white text-xs">Loading document...</div>
+                ) : previewError ? (
+                  <div className="w-full bg-white rounded-lg p-6 text-gray-900 font-sans text-center">
+                    <p className="font-bold text-red-600">Unable to load document</p>
+                    <p className="text-xs mt-2">{previewError}</p>
+                  </div>
+                ) : previewingDoc.contentType?.startsWith('application/pdf') ? (
+                  <iframe
+                    title={previewingDoc.label}
+                    src={previewingDoc.url}
+                    className="w-full h-[420px] rounded-lg border-0"
+                  />
+                ) : previewingDoc.contentType?.startsWith('image/') ? (
+                  <div className="w-full flex flex-col items-center gap-3">
+                    <img
+                      src={previewingDoc.url}
+                      alt={previewingDoc.label}
+                      className="max-h-[340px] w-auto object-contain rounded-lg"
+                      onError={() => setPreviewError('Unable to load image')}
+                    />
                   </div>
                 ) : (
-                  <div className="w-full flex flex-col items-center gap-3">
-                    <div className="relative w-full max-h-[340px] rounded-lg overflow-hidden border border-slate-700 shadow-xl flex items-center justify-center bg-black">
-                      <img
-                        src="/src/assets/about-2.jpg"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?auto=format&fit=crop&w=800&q=80";
-                        }}
-                        alt={previewingDoc.label}
-                        className="max-h-[320px] w-auto object-contain rounded-lg"
-                      />
-                      <div className="absolute top-2 right-2 bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-white/20">
-                        HD Document Scan
-                      </div>
-                    </div>
+                  <div className="w-full bg-white rounded-lg p-6 text-gray-900 font-sans text-center">
+                    <p className="font-bold">Document preview unavailable</p>
+                    <p className="text-xs mt-2">The uploaded file type could not be previewed in-browser.</p>
                   </div>
                 )}
               </div>
@@ -1052,29 +1427,19 @@ export default function AdminDashboard() {
               </span>
 
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const win = window.open('', '_blank');
-                    if (win) {
-                      win.document.write(`
-                        <html>
-                          <head><title>Document Inspection - ${previewingDoc.label}</title></head>
-                          <body style="margin:0; background:#0f172a; display:flex; flex-direction:column; items-center; justify-content:center; min-height:100vh; color:white; font-family:sans-serif; text-align:center;">
-                            <h2 style="color:#f87171; margin-top:20px;">InfoBeans Foundation - Document Inspection</h2>
-                            <p style="color:#94a3b8;">${previewingDoc.label} (${previewingDoc.candidate})</p>
-                            <img src="https://images.unsplash.com/photo-1568602471122-7832951cc4c5?auto=format&fit=crop&w=1000&q=80" style="max-width:80%; max-height:75vh; border-radius:12px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.5); border:1px solid #334155;" />
-                            <p style="color:#4ade80; font-weight:bold; margin-top:15px;">✓ Official Verification Seal Attached</p>
-                          </body>
-                        </html>
-                      `);
-                    }
-                  }}
+                <a
+                  href={previewingDoc.url || previewingDoc.fetchUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="btn bg-slate-800 text-white hover:bg-slate-900 text-xs py-2 px-4 rounded-xl flex items-center gap-1.5 font-bold"
                 >
                   <ExternalLink size={14} /> Full Screen View
-                </button>
-                <button onClick={() => setPreviewingDoc(null)} className="btn-primary px-6 py-2 text-xs font-bold">
+                </a>
+                <button onClick={() => {
+                  if (previewingDoc?.blobUrl) URL.revokeObjectURL(previewingDoc.blobUrl);
+                  setPreviewingDoc(null);
+                  setPreviewError('');
+                }} className="btn-primary px-6 py-2 text-xs font-bold">
                   Close Preview
                 </button>
               </div>

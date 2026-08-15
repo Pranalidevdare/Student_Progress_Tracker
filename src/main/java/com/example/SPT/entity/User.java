@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -30,10 +31,12 @@ public class User implements UserDetails {
 
     private String fullName;
 
+    @Indexed(unique = true)
     private String email;
 
     private String password;
 
+    @Indexed(unique = true)
     private String phone;
 
     private Role role;
@@ -42,6 +45,9 @@ public class User implements UserDetails {
 
     @Builder.Default
     private Boolean enabled = true;
+
+    @Builder.Default
+    private Boolean mustChangePassword = false;
 
     private LocalDateTime createdAt;
 

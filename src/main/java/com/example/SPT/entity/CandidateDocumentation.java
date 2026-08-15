@@ -170,18 +170,25 @@ public class CandidateDocumentation {
      */
 
     private String passportPhoto;
+    private String passportPhotoName;
 
     private String aadharDocument;
+    private String aadharDocumentName;
 
     private String tenthMarksheet;
+    private String tenthMarksheetName;
 
     private String twelfthMarksheet;
+    private String twelfthMarksheetName;
 
     private String bachelorMarksheet;
+    private String bachelorMarksheetName;
 
     private String masterMarksheet;
+    private String masterMarksheetName;
 
     private String familyIncomeCertificate;
+    private String familyIncomeCertificateName;
 
 
     // =========================================================

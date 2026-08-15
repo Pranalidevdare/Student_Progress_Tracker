@@ -1,5 +1,7 @@
 package com.example.SPT.service;
 
+import java.time.LocalDate;
+
 import com.example.SPT.entity.AptitudeSchedule;
 
 public interface EmailService {
@@ -24,5 +26,28 @@ public interface EmailService {
             String to,
             String studentName,
             String batchName,
-            String courseName);
+            String courseName,
+            LocalDate startDate,
+            String technicalTrainer);
+
+    void sendHomeVisitDecisionEmail(
+            String to,
+            String studentName,
+            boolean passed,
+            String comments);
+
+    void sendStudentCredentialsEmail(
+            String to,
+            String studentName,
+            String temporaryPassword,
+            String loginUrl);
+
+    void sendBatchChangeEmail(
+            String to,
+            String studentName,
+            String oldBatchName,
+            String newBatchName,
+            LocalDate newBatchStartDate,
+            String courseName,
+            String technicalTrainer);
 }

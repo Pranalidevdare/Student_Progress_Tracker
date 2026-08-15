@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 export default function Interviews() {
   const { user } = useAuth();
   const trainerId = user?.id || localStorage.getItem('trainerId') || '650123456789abcdef012345';
-  const defaultBatchId = user?.batchId || localStorage.getItem('batchId') || 'BATCH001';
+  const defaultBatchId = user?.batchId || localStorage.getItem('batchId') || null;
   
   // Trainer Role Type: 'TECHNICAL' or 'SOFT_SKILLS'
   const isSoftSkillTrainer = user?.trainerType === 'SOFT_SKILLS' || user?.role?.includes('HR');

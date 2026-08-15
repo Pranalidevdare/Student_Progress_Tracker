@@ -34,13 +34,23 @@ public class JwtService {
     }
 
     public String generateToken(String email) {
+        return generateToken(email, false);
+    }
 
+    public String generateToken(String email, boolean mustChangePassword) {
         return Jwts.builder()
                 .setSubject(email)
+                .claim("mustChangePassword", mustChangePassword)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + jwtExpiration))
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
+    }
+
+    public boolean isMustChangePassword(String token) {
+        Boolean mustChangePassword = extractAllClaims(token)
+                .get("mustChangePassword", Boolean.class);
+        return Boolean.TRUE.equals(mustChangePassword);
     }
 
     public String extractEmail(String token) {

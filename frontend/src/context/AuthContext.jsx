@@ -28,18 +28,19 @@ export const AuthProvider = ({ children }) => {
 
   const loginUser = (data, meta = null) => {
     const userData = {
-      id: data.id || meta?.id || localStorage.getItem('trainerId') || '650123456789abcdef012345',
+      id: data.id || meta?.id || null,
       email: data.email,
       fullName: data.fullName,
       role: data.role,
       trainerType: data.trainerType,
-      batchId: data.batchId || meta?.batchId || localStorage.getItem('batchId') || 'BATCH001',
-      token: data.token
+      batchId: data.batchId || meta?.batchId || null,
+      token: data.token,
+      mustChangePassword: Boolean(data.mustChangePassword)
     };
-    
+
     setUser(userData);
     setToken(data.token);
-    
+
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -49,10 +50,16 @@ export const AuthProvider = ({ children }) => {
       role: data.role,
       studentId: userData.id,
       trainerId: userData.id,
-      batchId: userData.batchId
+      batchId: userData.batchId,
+      mustChangePassword: userData.mustChangePassword
     }));
-    localStorage.setItem('trainerId', userData.id);
-    localStorage.setItem('batchId', userData.batchId);
+
+    if (userData.id) {
+      localStorage.setItem('trainerId', userData.id);
+    }
+    if (userData.batchId) {
+      localStorage.setItem('batchId', userData.batchId);
+    }
   };
 
   const logoutUser = () => {

@@ -241,7 +241,7 @@ public class TrainerServiceImpl implements TrainerService {
                 .orElse(null);
 
         TrainerResponse trainerResponse;
-        String batchId = "BATCH001";
+        String batchId = null;
 
         if (trainer != null) {
             trainerResponse = trainerMapper.toResponse(trainer);
@@ -255,7 +255,7 @@ public class TrainerServiceImpl implements TrainerService {
                     .lastName("Trainer")
                     .email(trainerId.contains("@") ? trainerId : "trainer@spt.com")
                     .specialization("TECHNICAL")
-                    .batchId("BATCH001")
+                    .batchId(null)
                     .build();
         }
 

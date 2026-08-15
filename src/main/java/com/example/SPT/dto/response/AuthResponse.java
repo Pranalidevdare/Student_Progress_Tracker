@@ -28,4 +28,7 @@ public class AuthResponse {
 
     private TrainerType trainerType;
 
+    @Builder.Default
+    private Boolean mustChangePassword = false;
+
 }

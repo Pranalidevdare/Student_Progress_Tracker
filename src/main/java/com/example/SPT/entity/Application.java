@@ -82,6 +82,12 @@ public class Application {
 
     private String adminRemarks;
 
+    // Batch Assignment
+    
+    private String assignedBatchId;
+
+    private String assignedBatchName;
+
     // Audit Fields
 
     @Builder.Default

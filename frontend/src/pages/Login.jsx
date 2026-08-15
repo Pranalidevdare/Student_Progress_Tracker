@@ -28,6 +28,13 @@ export default function Login() {
       if (data && data.token) {
         loginUser(data);
         const roleName = String(data.role || 'STUDENT').toUpperCase();
+
+        if (data.mustChangePassword) {
+          toast.error('Password change required before continuing. Please update your password in the app.');
+          setError('Your password must be changed before you can continue.');
+          return;
+        }
+
         toast.success(`Welcome back, ${data.fullName || 'User'}!`);
 
         if (roleName.includes('ADMIN')) {

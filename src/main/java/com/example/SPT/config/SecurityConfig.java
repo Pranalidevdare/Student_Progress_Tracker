@@ -152,6 +152,15 @@ public class SecurityConfig {
                         "/error"
                 ).permitAll()
 
+                .requestMatchers("/api/auth/change-password")
+                .authenticated()
+
+                // ==========================================
+                // BATCH APIs
+                // ==========================================
+                .requestMatchers("/api/batches/**")
+                .hasAnyRole("ADMIN", "TRAINER", "STUDENT")
+
                 // ==========================================
                 // ADMIN APIs
                 // ==========================================

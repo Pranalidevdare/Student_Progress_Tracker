@@ -158,17 +158,17 @@ public class AptitudeServiceImpl implements AptitudeService {
                         application);
 
 
-                throw new IllegalStateException(
-                        "Aptitude test time has expired");
+                // The previous attempt expired; allow the candidate to start a new attempt.
+                // This avoids a stale IN_PROGRESS record blocking subsequent starts.
+            } else {
+
+                // -------------------------------------------------
+                // Existing attempt still active
+                // -------------------------------------------------
+
+                return aptitudeResultMapper
+                        .toResponse(existingResult);
             }
-
-
-            // -------------------------------------------------
-            // Existing attempt still active
-            // -------------------------------------------------
-
-            return aptitudeResultMapper
-                    .toResponse(existingResult);
         }
 
 

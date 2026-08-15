@@ -56,7 +56,7 @@ export default function Profile() {
           specialization: data.specialization || user?.trainerType || 'Technical',
           qualification: data.qualification || 'B.E. Computer Science',
           experience: data.experience || 5,
-          batchId: data.batchId || 'BATCH001',
+          batchId: data.batchId || null,
           profileImage: data.profileImage || user?.profileImage || ''
         });
       } else {
@@ -71,7 +71,7 @@ export default function Profile() {
           collegeName: user?.collegeName || 'ISBM College of Engineering',
           branch: user?.branch || 'Computer Engineering (COMP)',
           yearOfStudy: '4th Year',
-          batchId: user?.batchId || 'BATCH001',
+          batchId: user?.batchId || null,
           employeeId: isAdmin ? 'ADM001' : 'N/A',
           specialization: isAdmin ? 'System Administration' : 'Software Engineering',
           qualification: 'B.E. Computer Science',

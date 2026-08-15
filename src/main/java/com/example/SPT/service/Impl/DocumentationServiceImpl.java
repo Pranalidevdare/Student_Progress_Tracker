@@ -51,401 +51,874 @@ public class DocumentationServiceImpl implements DocumentationService {
     // SUBMIT DOCUMENTATION
     // =========================================================
 
-    @Override
-    public DocumentationResponse submitDocumentation(
-            DocumentationSubmitRequest request) {
+//     @Override
+//     public DocumentationResponse submitDocumentation(
+//             DocumentationSubmitRequest request) {
 
-        if (request == null) {
-            throw new IllegalArgumentException(
-                    "Documentation request cannot be null");
-        }
+//         if (request == null) {
+//             throw new IllegalArgumentException(
+//                     "Documentation request cannot be null");
+//         }
 
-        // -----------------------------------------------------
-        // 1. Find application
-        // -----------------------------------------------------
+//         // -----------------------------------------------------
+//         // 1. Find application
+//         // -----------------------------------------------------
 
-        Application application =
-                applicationRepository
-                        .findById(request.getApplicationId())
-                        .or(() -> applicationRepository.findByApplicationNumber(request.getApplicationId()))
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Application not found with id or application number: "
-                                                + request.getApplicationId()));
-
-
-        // -----------------------------------------------------
-        // 2. Check application status
-        // -----------------------------------------------------
-
-        /*
-         * Documentation should be submitted only after
-         * the candidate passes the aptitude test.
-         * Legacy or rejected submissions are also allowed to retry.
-         */
-        ApplicationStatus currentStatus = application.getStatus();
-        if (currentStatus != ApplicationStatus.APTITUDE_PASSED
-                && currentStatus != ApplicationStatus.DOCUMENTATION_PENDING
-                && currentStatus != ApplicationStatus.DOCUMENTS_REJECTED) {
-
-            throw new IllegalStateException(
-                    "Documentation cannot be submitted. "
-                    + "Current application status is: "
-                    + currentStatus);
-        }
+//         Application application =
+//                 applicationRepository
+//                         .findById(request.getApplicationId())
+//                         .or(() -> applicationRepository.findByApplicationNumber(request.getApplicationId()))
+//                         .orElseThrow(() ->
+//                                 new ResourceNotFoundException(
+//                                         "Application not found with id or application number: "
+//                                                 + request.getApplicationId()));
 
 
-        // -----------------------------------------------------
-        // 3. Prevent duplicate documentation
-        // -----------------------------------------------------
+//         // -----------------------------------------------------
+//         // 2. Check application status
+//         // -----------------------------------------------------
 
-        if (documentationRepository
-                .existsByApplicationId(
-                        request.getApplicationId())) {
+//         /*
+//          * Documentation should be submitted only after
+//          * the candidate passes the aptitude test.
+//          * Legacy or rejected submissions are also allowed to retry.
+//          */
+//         ApplicationStatus currentStatus = application.getStatus();
+//         if (currentStatus != ApplicationStatus.APTITUDE_PASSED
+//                 && currentStatus != ApplicationStatus.DOCUMENTATION_PENDING
+//                 && currentStatus != ApplicationStatus.DOCUMENTS_REJECTED) {
 
-            throw new ResourceAlreadyExistsException(
-                    "Documentation already exists for application: "
-                            + request.getApplicationId());
-        }
-
-
-        // -----------------------------------------------------
-        // 4. Validate declaration
-        // -----------------------------------------------------
-
-        if (!Boolean.TRUE.equals(
-                request.getDeclarationAccepted())) {
-
-            throw new IllegalArgumentException(
-                    "Candidate must accept the declaration");
-        }
+//             throw new IllegalStateException(
+//                     "Documentation cannot be submitted. "
+//                     + "Current application status is: "
+//                     + currentStatus);
+//         }
 
 
-        // -----------------------------------------------------
-        // 5. Validate uploaded files
-        // -----------------------------------------------------
+//         // -----------------------------------------------------
+//         // 3. Prevent duplicate documentation
+//         // -----------------------------------------------------
 
-        validateRequiredFile(
-                request.getPassportPhoto(),
-                "Passport photograph");
+//         if (documentationRepository
+//                 .existsByApplicationId(
+//                         request.getApplicationId())) {
 
-        validateRequiredFile(
-                request.getAadharDocument(),
-                "Aadhar document");
+//             throw new ResourceAlreadyExistsException(
+//                     "Documentation already exists for application: "
+//                             + request.getApplicationId());
+//         }
 
-        validateRequiredFile(
-                request.getTenthMarksheet(),
-                "10th marksheet");
 
-        validateRequiredFile(
-                request.getTwelfthMarksheet(),
-                "12th marksheet");
+//         // -----------------------------------------------------
+//         // 4. Validate declaration
+//         // -----------------------------------------------------
 
-        validateRequiredFile(
-                request.getBachelorMarksheet(),
-                "Bachelor marksheet");
+//         if (!Boolean.TRUE.equals(
+//                 request.getDeclarationAccepted())) {
 
+//             throw new IllegalArgumentException(
+//                     "Candidate must accept the declaration");
+//         }
+
+
+//         // -----------------------------------------------------
+//         // 5. Validate uploaded files
+//         // -----------------------------------------------------
+
+//         validateRequiredFile(
+//                 request.getPassportPhoto(),
+//                 "Passport photograph");
+
+//         validateRequiredFile(
+//                 request.getAadharDocument(),
+//                 "Aadhar document");
+
+//         validateRequiredFile(
+//                 request.getTenthMarksheet(),
+//                 "10th marksheet");
+
+//         validateRequiredFile(
+//                 request.getTwelfthMarksheet(),
+//                 "12th marksheet");
+
+//         validateRequiredFile(
+//                 request.getBachelorMarksheet(),
+//                 "Bachelor marksheet");
+
+//         validateRequiredFile(
+//                 request.getFamilyIncomeCertificate(),
+//                 "Family income certificate");
+
+
+//         // -----------------------------------------------------
+//         // 6. Create candidate directory
+//         // -----------------------------------------------------
+
+//         String applicationNumber =
+//                 application.getApplicationNumber();
+
+//         String safeApplicationNumber =
+//                 sanitizePathPart(applicationNumber);
+
+//         Path candidateDirectory =
+//                 Paths.get(
+//                         uploadDirectory,
+//                         "documentation",
+//                         safeApplicationNumber);
+
+
+//         try {
+
+//             Files.createDirectories(candidateDirectory);
+
+//         } catch (IOException exception) {
+
+//             throw new RuntimeException(
+//                     "Unable to create document storage directory",
+//                     exception);
+//         }
+
+
+//         // -----------------------------------------------------
+//         // 7. Store uploaded files
+//         // -----------------------------------------------------
+
+//         String passportPhoto =
+//                 storeFile(
+//                         request.getPassportPhoto(),
+//                         candidateDirectory,
+//                         "passport-photo");
+
+//         String aadharDocument =
+//                 storeFile(
+//                         request.getAadharDocument(),
+//                         candidateDirectory,
+//                         "aadhar");
+
+//         String tenthMarksheet =
+//                 storeFile(
+//                         request.getTenthMarksheet(),
+//                         candidateDirectory,
+//                         "10th-marksheet");
+
+//         String twelfthMarksheet =
+//                 storeFile(
+//                         request.getTwelfthMarksheet(),
+//                         candidateDirectory,
+//                         "12th-marksheet");
+
+//         String bachelorMarksheet =
+//                 storeFile(
+//                         request.getBachelorMarksheet(),
+//                         candidateDirectory,
+//                         "bachelor-marksheet");
+
+//         String masterMarksheet = null;
+
+//         if (request.getMasterMarksheet() != null
+//                 && !request.getMasterMarksheet().isEmpty()) {
+
+//             masterMarksheet =
+//                     storeFile(
+//                             request.getMasterMarksheet(),
+//                             candidateDirectory,
+//                             "master-marksheet");
+//         }
+
+//         String familyIncomeCertificate =
+//                 storeFile(
+//                         request.getFamilyIncomeCertificate(),
+//                         candidateDirectory,
+//                         "family-income-certificate");
+
+
+//         // -----------------------------------------------------
+//         // 8. Create CandidateDocumentation
+//         // -----------------------------------------------------
+
+//         LocalDateTime now =
+//                 LocalDateTime.now();
+
+//         CandidateDocumentation documentation =
+//                 CandidateDocumentation.builder()
+
+//                         .applicationId(
+//                                 application.getId())
+
+//                         .applicationNumber(
+//                                 application.getApplicationNumber())
+
+//                         // Personal details
+//                         .candidateName(
+//                                 request.getCandidateName())
+
+//                         .dateOfBirth(
+//                                 request.getDateOfBirth())
+
+//                         .age(
+//                                 request.getAge())
+
+//                         .gender(
+//                                 request.getGender())
+
+//                         .otherGender(
+//                                 request.getOtherGender())
+
+//                         .fatherName(
+//                                 request.getFatherName())
+
+//                         .fatherOccupation(
+//                                 request.getFatherOccupation())
+
+//                         .motherName(
+//                                 request.getMotherName())
+
+//                         .motherOccupation(
+//                                 request.getMotherOccupation())
+
+//                         .firstGraduate(
+//                                 request.getFirstGraduate())
+
+//                         .maritalStatus(
+//                                 request.getMaritalStatus())
+
+//                         // Mailing address
+//                         .mailingFullName(
+//                                 request.getMailingFullName())
+
+//                         .mailingAddress(
+//                                 request.getMailingAddress())
+
+//                         .mailingPincode(
+//                                 request.getMailingPincode())
+
+//                         .personalMobile(
+//                                 request.getPersonalMobile())
+
+//                         .personalEmail(
+//                                 request.getPersonalEmail())
+
+//                         // Guardian
+//                         .guardianFullName(
+//                                 request.getGuardianFullName())
+
+//                         .guardianAddress(
+//                                 request.getGuardianAddress())
+
+//                         .guardianPincode(
+//                                 request.getGuardianPincode())
+
+//                         .guardianMobile(
+//                                 request.getGuardianMobile())
+
+//                         .guardianLandline(
+//                                 request.getGuardianLandline())
+
+//                         // 10th
+//                         .tenthSchoolName(
+//                                 request.getTenthSchoolName())
+
+//                         .tenthBoard(
+//                                 request.getTenthBoard())
+
+//                         .tenthPassingYear(
+//                                 request.getTenthPassingYear())
+
+//                         .tenthMarks(
+//                                 request.getTenthMarks())
+
+//                         .tenthPercentage(
+//                                 request.getTenthPercentage())
+
+//                         // 12th
+//                         .twelfthSchoolName(
+//                                 request.getTwelfthSchoolName())
+
+//                         .twelfthBoard(
+//                                 request.getTwelfthBoard())
+
+//                         .twelfthPassingYear(
+//                                 request.getTwelfthPassingYear())
+
+//                         .twelfthMarks(
+//                                 request.getTwelfthMarks())
+
+//                         .twelfthPercentage(
+//                                 request.getTwelfthPercentage())
+
+//                         // Graduation
+//                         .graduationCollege(
+//                                 request.getGraduationCollege())
+
+//                         .graduationDegree(
+//                                 request.getGraduationDegree())
+
+//                         .graduationMarks(
+//                                 request.getGraduationMarks())
+
+//                         .graduationPercentage(
+//                                 request.getGraduationPercentage())
+
+//                         .graduationPassingYear(
+//                                 request.getGraduationPassingYear())
+
+//                         // Post graduation
+//                         .postGraduationCollege(
+//                                 request.getPostGraduationCollege())
+
+//                         .postGraduationDegree(
+//                                 request.getPostGraduationDegree())
+
+//                         .postGraduationPassingYear(
+//                                 request.getPostGraduationPassingYear())
+
+//                         .postGraduationMarks(
+//                                 request.getPostGraduationMarks())
+
+//                         .postGraduationPercentage(
+//                                 request.getPostGraduationPercentage())
+
+//                         // Documents
+//                         .passportPhoto(
+//                                 passportPhoto)
+
+//                         .aadharDocument(
+//                                 aadharDocument)
+
+//                         .tenthMarksheet(
+//                                 tenthMarksheet)
+
+//                         .twelfthMarksheet(
+//                                 twelfthMarksheet)
+
+//                         .bachelorMarksheet(
+//                                 bachelorMarksheet)
+
+//                         .masterMarksheet(
+//                                 masterMarksheet)
+
+//                         .familyIncomeCertificate(
+//                                 familyIncomeCertificate)
+
+//                         // Declaration
+//                         .declarationAccepted(
+//                                 request.getDeclarationAccepted())
+
+//                         // Status
+//                         .status(
+//                                 DocumentationStatus.SUBMITTED)
+
+//                         .active(true)
+
+//                         .createdAt(now)
+
+//                         .updatedAt(now)
+
+//                         .build();
+
+
+//         // -----------------------------------------------------
+//         // 9. Save documentation
+//         // -----------------------------------------------------
+
+//         CandidateDocumentation savedDocumentation =
+//                 documentationRepository.save(
+//                         documentation);
+
+
+//         // -----------------------------------------------------
+//         // 10. Update application status
+//         // -----------------------------------------------------
+
+//         application.setStatus(
+//                 ApplicationStatus.DOCUMENTS_SUBMITTED);
+
+//         application.setUpdatedAt(
+//                 LocalDateTime.now());
+
+//         applicationRepository.save(application);
+
+
+//         // -----------------------------------------------------
+//         // 11. Return response
+//         // -----------------------------------------------------
+
+//         return mapToResponse(
+//                 savedDocumentation);
+//     }
+
+
+
+@Override
+public DocumentationResponse submitDocumentation(
+        DocumentationSubmitRequest request) {
+
+    System.out.println("========================================");
+    System.out.println("START DOCUMENTATION SUBMISSION");
+    System.out.println("========================================");
+
+    if (request == null) {
+        throw new IllegalArgumentException(
+                "Documentation request cannot be null");
+    }
+
+    System.out.println("Application ID received: "
+            + request.getApplicationId());
+
+    System.out.println("Candidate name received: "
+            + request.getCandidateName());
+
+    System.out.println("Declaration accepted: "
+            + request.getDeclarationAccepted());
+
+    // -----------------------------------------------------
+    // 1. Find application
+    // -----------------------------------------------------
+
+    Application application =
+            applicationRepository
+                    .findById(request.getApplicationId())
+                    .or(() ->
+                            applicationRepository
+                                    .findByApplicationNumber(
+                                            request.getApplicationId()
+                                    ))
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "Application not found with id or application number: "
+                                            + request.getApplicationId()
+                            ));
+
+    System.out.println("Application found");
+    System.out.println("Mongo Application ID: "
+            + application.getId());
+    System.out.println("Application Number: "
+            + application.getApplicationNumber());
+    System.out.println("Application Status: "
+            + application.getStatus());
+
+    // -----------------------------------------------------
+    // 2. Check application status
+    // -----------------------------------------------------
+
+    ApplicationStatus currentStatus =
+            application.getStatus();
+
+    if (currentStatus != ApplicationStatus.SUBMITTED
+            && currentStatus != ApplicationStatus.APTITUDE_PASSED
+            && currentStatus != ApplicationStatus.DOCUMENTATION_PENDING
+            && currentStatus != ApplicationStatus.DOCUMENTS_REJECTED) {
+
+        throw new IllegalStateException(
+                "Documentation cannot be submitted. "
+                        + "Current application status is: "
+                        + currentStatus);
+    }
+
+    // -----------------------------------------------------
+    // 3. Prevent duplicate documentation
+    // IMPORTANT:
+    // Always use the actual MongoDB Application ID.
+    // -----------------------------------------------------
+
+    if (documentationRepository
+            .existsByApplicationId(application.getId())) {
+
+        throw new ResourceAlreadyExistsException(
+                "Documentation already exists for application: "
+                        + application.getId());
+    }
+
+    // -----------------------------------------------------
+    // 4. Validate declaration
+    // -----------------------------------------------------
+
+    if (!Boolean.TRUE.equals(
+            request.getDeclarationAccepted())) {
+
+        throw new IllegalArgumentException(
+                "Candidate must accept the declaration");
+    }
+
+    // -----------------------------------------------------
+    // 5. Validate uploaded files
+    // -----------------------------------------------------
+
+    validateRequiredFile(
+            request.getPassportPhoto(),
+            "Passport photograph");
+
+    validateRequiredFile(
+            request.getAadharDocument(),
+            "Aadhar document");
+
+    validateRequiredFile(
+            request.getTenthMarksheet(),
+            "10th marksheet");
+
+    validateRequiredFile(
+            request.getTwelfthMarksheet(),
+            "12th marksheet");
+
+    validateRequiredFile(
+            request.getBachelorMarksheet(),
+            "Bachelor marksheet");
+
+    if (request.getFamilyIncomeCertificate() != null
+            && !request.getFamilyIncomeCertificate().isEmpty()) {
         validateRequiredFile(
                 request.getFamilyIncomeCertificate(),
                 "Family income certificate");
+    }
 
+    System.out.println("All required files validated successfully");
 
-        // -----------------------------------------------------
-        // 6. Create candidate directory
-        // -----------------------------------------------------
+    // -----------------------------------------------------
+    // 6. Create candidate directory
+    // -----------------------------------------------------
 
-        String applicationNumber =
-                application.getApplicationNumber();
+    String applicationNumber =
+            application.getApplicationNumber();
 
-        String safeApplicationNumber =
-                sanitizePathPart(applicationNumber);
+    String safeApplicationNumber =
+            sanitizePathPart(applicationNumber);
 
-        Path candidateDirectory =
-                Paths.get(
-                        uploadDirectory,
-                        "documentation",
-                        safeApplicationNumber);
+    Path candidateDirectory =
+            Paths.get(
+                    uploadDirectory,
+                    "documentation",
+                    safeApplicationNumber
+            );
 
+    try {
 
-        try {
+        Files.createDirectories(candidateDirectory);
 
-            Files.createDirectories(candidateDirectory);
+    } catch (IOException exception) {
 
-        } catch (IOException exception) {
+        throw new RuntimeException(
+                "Unable to create document storage directory",
+                exception);
+    }
 
-            throw new RuntimeException(
-                    "Unable to create document storage directory",
-                    exception);
-        }
+    // -----------------------------------------------------
+    // 7. Store uploaded files
+    // -----------------------------------------------------
 
+    String passportPhoto =
+            storeFile(
+                    request.getPassportPhoto(),
+                    candidateDirectory,
+                    "passport-photo");
+    String passportPhotoName =
+            fileNameOnly(request.getPassportPhoto());
 
-        // -----------------------------------------------------
-        // 7. Store uploaded files
-        // -----------------------------------------------------
+    String aadharDocument =
+            storeFile(
+                    request.getAadharDocument(),
+                    candidateDirectory,
+                    "aadhar");
+    String aadharDocumentName =
+            fileNameOnly(request.getAadharDocument());
 
-        String passportPhoto =
+    String tenthMarksheet =
+            storeFile(
+                    request.getTenthMarksheet(),
+                    candidateDirectory,
+                    "10th-marksheet");
+    String tenthMarksheetName =
+            fileNameOnly(request.getTenthMarksheet());
+
+    String twelfthMarksheet =
+            storeFile(
+                    request.getTwelfthMarksheet(),
+                    candidateDirectory,
+                    "12th-marksheet");
+    String twelfthMarksheetName =
+            fileNameOnly(request.getTwelfthMarksheet());
+
+    String bachelorMarksheet =
+            storeFile(
+                    request.getBachelorMarksheet(),
+                    candidateDirectory,
+                    "bachelor-marksheet");
+    String bachelorMarksheetName =
+            fileNameOnly(request.getBachelorMarksheet());
+
+    String masterMarksheet = null;
+    String masterMarksheetName = null;
+
+    if (request.getMasterMarksheet() != null
+            && !request.getMasterMarksheet().isEmpty()) {
+
+        masterMarksheet =
                 storeFile(
-                        request.getPassportPhoto(),
+                        request.getMasterMarksheet(),
                         candidateDirectory,
-                        "passport-photo");
+                        "master-marksheet");
+        masterMarksheetName =
+                fileNameOnly(request.getMasterMarksheet());
+    }
 
-        String aadharDocument =
-                storeFile(
-                        request.getAadharDocument(),
-                        candidateDirectory,
-                        "aadhar");
-
-        String tenthMarksheet =
-                storeFile(
-                        request.getTenthMarksheet(),
-                        candidateDirectory,
-                        "10th-marksheet");
-
-        String twelfthMarksheet =
-                storeFile(
-                        request.getTwelfthMarksheet(),
-                        candidateDirectory,
-                        "12th-marksheet");
-
-        String bachelorMarksheet =
-                storeFile(
-                        request.getBachelorMarksheet(),
-                        candidateDirectory,
-                        "bachelor-marksheet");
-
-        String masterMarksheet = null;
-
-        if (request.getMasterMarksheet() != null
-                && !request.getMasterMarksheet().isEmpty()) {
-
-            masterMarksheet =
-                    storeFile(
-                            request.getMasterMarksheet(),
-                            candidateDirectory,
-                            "master-marksheet");
-        }
-
-        String familyIncomeCertificate =
+    String familyIncomeCertificate = null;
+    String familyIncomeCertificateName = null;
+    if (request.getFamilyIncomeCertificate() != null
+            && !request.getFamilyIncomeCertificate().isEmpty()) {
+        familyIncomeCertificate =
                 storeFile(
                         request.getFamilyIncomeCertificate(),
                         candidateDirectory,
                         "family-income-certificate");
-
-
-        // -----------------------------------------------------
-        // 8. Create CandidateDocumentation
-        // -----------------------------------------------------
-
-        LocalDateTime now =
-                LocalDateTime.now();
-
-        CandidateDocumentation documentation =
-                CandidateDocumentation.builder()
-
-                        .applicationId(
-                                application.getId())
-
-                        .applicationNumber(
-                                application.getApplicationNumber())
-
-                        // Personal details
-                        .candidateName(
-                                request.getCandidateName())
-
-                        .dateOfBirth(
-                                request.getDateOfBirth())
-
-                        .age(
-                                request.getAge())
-
-                        .gender(
-                                request.getGender())
-
-                        .otherGender(
-                                request.getOtherGender())
-
-                        .fatherName(
-                                request.getFatherName())
-
-                        .fatherOccupation(
-                                request.getFatherOccupation())
-
-                        .motherName(
-                                request.getMotherName())
-
-                        .motherOccupation(
-                                request.getMotherOccupation())
-
-                        .firstGraduate(
-                                request.getFirstGraduate())
-
-                        .maritalStatus(
-                                request.getMaritalStatus())
-
-                        // Mailing address
-                        .mailingFullName(
-                                request.getMailingFullName())
-
-                        .mailingAddress(
-                                request.getMailingAddress())
-
-                        .mailingPincode(
-                                request.getMailingPincode())
-
-                        .personalMobile(
-                                request.getPersonalMobile())
-
-                        .personalEmail(
-                                request.getPersonalEmail())
-
-                        // Guardian
-                        .guardianFullName(
-                                request.getGuardianFullName())
-
-                        .guardianAddress(
-                                request.getGuardianAddress())
-
-                        .guardianPincode(
-                                request.getGuardianPincode())
-
-                        .guardianMobile(
-                                request.getGuardianMobile())
-
-                        .guardianLandline(
-                                request.getGuardianLandline())
-
-                        // 10th
-                        .tenthSchoolName(
-                                request.getTenthSchoolName())
-
-                        .tenthBoard(
-                                request.getTenthBoard())
-
-                        .tenthPassingYear(
-                                request.getTenthPassingYear())
-
-                        .tenthMarks(
-                                request.getTenthMarks())
-
-                        .tenthPercentage(
-                                request.getTenthPercentage())
-
-                        // 12th
-                        .twelfthSchoolName(
-                                request.getTwelfthSchoolName())
-
-                        .twelfthBoard(
-                                request.getTwelfthBoard())
-
-                        .twelfthPassingYear(
-                                request.getTwelfthPassingYear())
-
-                        .twelfthMarks(
-                                request.getTwelfthMarks())
-
-                        .twelfthPercentage(
-                                request.getTwelfthPercentage())
-
-                        // Graduation
-                        .graduationCollege(
-                                request.getGraduationCollege())
-
-                        .graduationDegree(
-                                request.getGraduationDegree())
-
-                        .graduationMarks(
-                                request.getGraduationMarks())
-
-                        .graduationPercentage(
-                                request.getGraduationPercentage())
-
-                        .graduationPassingYear(
-                                request.getGraduationPassingYear())
-
-                        // Post graduation
-                        .postGraduationCollege(
-                                request.getPostGraduationCollege())
-
-                        .postGraduationDegree(
-                                request.getPostGraduationDegree())
-
-                        .postGraduationPassingYear(
-                                request.getPostGraduationPassingYear())
-
-                        .postGraduationMarks(
-                                request.getPostGraduationMarks())
-
-                        .postGraduationPercentage(
-                                request.getPostGraduationPercentage())
-
-                        // Documents
-                        .passportPhoto(
-                                passportPhoto)
-
-                        .aadharDocument(
-                                aadharDocument)
-
-                        .tenthMarksheet(
-                                tenthMarksheet)
-
-                        .twelfthMarksheet(
-                                twelfthMarksheet)
-
-                        .bachelorMarksheet(
-                                bachelorMarksheet)
-
-                        .masterMarksheet(
-                                masterMarksheet)
-
-                        .familyIncomeCertificate(
-                                familyIncomeCertificate)
-
-                        // Declaration
-                        .declarationAccepted(
-                                request.getDeclarationAccepted())
-
-                        // Status
-                        .status(
-                                DocumentationStatus.SUBMITTED)
-
-                        .active(true)
-
-                        .createdAt(now)
-
-                        .updatedAt(now)
-
-                        .build();
-
-
-        // -----------------------------------------------------
-        // 9. Save documentation
-        // -----------------------------------------------------
-
-        CandidateDocumentation savedDocumentation =
-                documentationRepository.save(
-                        documentation);
-
-
-        // -----------------------------------------------------
-        // 10. Update application status
-        // -----------------------------------------------------
-
-        application.setStatus(
-                ApplicationStatus.DOCUMENTS_SUBMITTED);
-
-        application.setUpdatedAt(
-                LocalDateTime.now());
-
-        applicationRepository.save(application);
-
-
-        // -----------------------------------------------------
-        // 11. Return response
-        // -----------------------------------------------------
-
-        return mapToResponse(
-                savedDocumentation);
+        familyIncomeCertificateName =
+                fileNameOnly(request.getFamilyIncomeCertificate());
     }
+
+    System.out.println("All files stored successfully");
+
+    // -----------------------------------------------------
+    // 8. Create CandidateDocumentation
+    // -----------------------------------------------------
+
+    LocalDateTime now =
+            LocalDateTime.now();
+
+    CandidateDocumentation documentation =
+            CandidateDocumentation.builder()
+
+                    // IMPORTANT:
+                    // Store actual MongoDB Application ID
+                    .applicationId(
+                            application.getId())
+
+                    .applicationNumber(
+                            application.getApplicationNumber())
+
+                    // Personal details
+                    .candidateName(
+                            request.getCandidateName())
+
+                    .dateOfBirth(
+                            request.getDateOfBirth())
+
+                    .age(
+                            request.getAge())
+
+                    .gender(
+                            request.getGender())
+
+                    .otherGender(
+                            request.getOtherGender())
+
+                    .fatherName(
+                            request.getFatherName())
+
+                    .fatherOccupation(
+                            request.getFatherOccupation())
+
+                    .motherName(
+                            request.getMotherName())
+
+                    .motherOccupation(
+                            request.getMotherOccupation())
+
+                    .firstGraduate(
+                            request.getFirstGraduate())
+
+                    .maritalStatus(
+                            request.getMaritalStatus())
+
+                    // Mailing address
+                    .mailingFullName(
+                            request.getMailingFullName())
+
+                    .mailingAddress(
+                            request.getMailingAddress())
+
+                    .mailingPincode(
+                            request.getMailingPincode())
+
+                    .personalMobile(
+                            request.getPersonalMobile())
+
+                    .personalEmail(
+                            request.getPersonalEmail())
+
+                    // Guardian
+                    .guardianFullName(
+                            request.getGuardianFullName())
+
+                    .guardianAddress(
+                            request.getGuardianAddress())
+
+                    .guardianPincode(
+                            request.getGuardianPincode())
+
+                    .guardianMobile(
+                            request.getGuardianMobile())
+
+                    .guardianLandline(
+                            request.getGuardianLandline())
+
+                    // 10th
+                    .tenthSchoolName(
+                            request.getTenthSchoolName())
+
+                    .tenthBoard(
+                            request.getTenthBoard())
+
+                    .tenthPassingYear(
+                            request.getTenthPassingYear())
+
+                    .tenthMarks(
+                            request.getTenthMarks())
+
+                    .tenthPercentage(
+                            request.getTenthPercentage())
+
+                    // 12th
+                    .twelfthSchoolName(
+                            request.getTwelfthSchoolName())
+
+                    .twelfthBoard(
+                            request.getTwelfthBoard())
+
+                    .twelfthPassingYear(
+                            request.getTwelfthPassingYear())
+
+                    .twelfthMarks(
+                            request.getTwelfthMarks())
+
+                    .twelfthPercentage(
+                            request.getTwelfthPercentage())
+
+                    // Graduation
+                    .graduationCollege(
+                            request.getGraduationCollege())
+
+                    .graduationDegree(
+                            request.getGraduationDegree())
+
+                    .graduationMarks(
+                            request.getGraduationMarks())
+
+                    .graduationPercentage(
+                            request.getGraduationPercentage())
+
+                    .graduationPassingYear(
+                            request.getGraduationPassingYear())
+
+                    // Post graduation
+                    .postGraduationCollege(
+                            request.getPostGraduationCollege())
+
+                    .postGraduationDegree(
+                            request.getPostGraduationDegree())
+
+                    .postGraduationPassingYear(
+                            request.getPostGraduationPassingYear())
+
+                    .postGraduationMarks(
+                            request.getPostGraduationMarks())
+
+                    .postGraduationPercentage(
+                            request.getPostGraduationPercentage())
+
+                    // Documents
+                    .passportPhoto(
+                            passportPhoto)
+                    .passportPhotoName(
+                            passportPhotoName)
+
+                    .aadharDocument(
+                            aadharDocument)
+                    .aadharDocumentName(
+                            aadharDocumentName)
+
+                    .tenthMarksheet(
+                            tenthMarksheet)
+                    .tenthMarksheetName(
+                            tenthMarksheetName)
+
+                    .twelfthMarksheet(
+                            twelfthMarksheet)
+                    .twelfthMarksheetName(
+                            twelfthMarksheetName)
+
+                    .bachelorMarksheet(
+                            bachelorMarksheet)
+                    .bachelorMarksheetName(
+                            bachelorMarksheetName)
+
+                    .masterMarksheet(
+                            masterMarksheet)
+                    .masterMarksheetName(
+                            masterMarksheetName)
+
+                    .familyIncomeCertificate(
+                            familyIncomeCertificate)
+                    .familyIncomeCertificateName(
+                            familyIncomeCertificateName)
+
+                    // Declaration
+                    .declarationAccepted(
+                            request.getDeclarationAccepted())
+
+                    // Status
+                    .status(
+                            DocumentationStatus.SUBMITTED)
+
+                    .active(true)
+
+                    .createdAt(now)
+
+                    .updatedAt(now)
+
+                    .build();
+
+    // -----------------------------------------------------
+    // 9. SAVE TO MONGODB
+    // -----------------------------------------------------
+
+    System.out.println("========================================");
+    System.out.println("SAVING DOCUMENTATION TO MONGODB");
+    System.out.println("Application ID: "
+            + documentation.getApplicationId());
+    System.out.println("Application Number: "
+            + documentation.getApplicationNumber());
+    System.out.println("Candidate Name: "
+            + documentation.getCandidateName());
+    System.out.println("========================================");
+
+    CandidateDocumentation savedDocumentation =
+            documentationRepository.save(
+                    documentation);
+
+    System.out.println("========================================");
+    System.out.println("MONGODB SAVE SUCCESSFUL");
+    System.out.println("Documentation MongoDB ID: "
+            + savedDocumentation.getId());
+    System.out.println("========================================");
+
+    // -----------------------------------------------------
+    // 10. Update application status
+    // -----------------------------------------------------
+
+    application.setStatus(
+            ApplicationStatus.DOCUMENTS_SUBMITTED);
+
+    application.setUpdatedAt(
+            LocalDateTime.now());
+
+    applicationRepository.save(application);
+
+    // -----------------------------------------------------
+    // 11. Return response
+    // -----------------------------------------------------
+
+    return mapToResponse(
+            savedDocumentation);
+}
+
 
 
     // =========================================================
@@ -819,6 +1292,89 @@ public class DocumentationServiceImpl implements DocumentationService {
                 .replaceAll("[^a-zA-Z0-9._-]", "_");
     }
 
+    private String fileNameOnly(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            return null;
+        }
+
+        String originalFileName = StringUtils.cleanPath(
+                file.getOriginalFilename() == null ? "" : file.getOriginalFilename());
+
+        return originalFileName.isBlank() ? null : originalFileName;
+    }
+
+    @Override
+    public DocumentFileContent getDocumentFile(
+            String applicationId,
+            String documentType) {
+
+        CandidateDocumentation documentation = documentationRepository.findByApplicationId(applicationId)
+                .orElse(null);
+
+        if (documentation == null) {
+            Application application = applicationRepository.findByApplicationNumber(applicationId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Documentation not found for application: " + applicationId));
+            documentation = documentationRepository.findByApplicationId(application.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Documentation not found for application: " + applicationId));
+        }
+
+        String storedPath = switch (documentType) {
+            case "passportPhoto" -> documentation.getPassportPhoto();
+            case "aadharDocument" -> documentation.getAadharDocument();
+            case "tenthMarksheet" -> documentation.getTenthMarksheet();
+            case "twelfthMarksheet" -> documentation.getTwelfthMarksheet();
+            case "bachelorMarksheet" -> documentation.getBachelorMarksheet();
+            case "masterMarksheet" -> documentation.getMasterMarksheet();
+            case "familyIncomeCertificate" -> documentation.getFamilyIncomeCertificate();
+            default -> null;
+        };
+
+        if (storedPath == null || storedPath.isBlank()) {
+            throw new ResourceNotFoundException(
+                    "Document not found for type: " + documentType);
+        }
+
+        Path filePath = Paths.get(storedPath).normalize();
+        if (!Files.exists(filePath)) {
+            throw new ResourceNotFoundException(
+                    "Stored document file not found for type: " + documentType);
+        }
+
+        String resolvedName = switch (documentType) {
+            case "passportPhoto" -> documentation.getPassportPhotoName();
+            case "aadharDocument" -> documentation.getAadharDocumentName();
+            case "tenthMarksheet" -> documentation.getTenthMarksheetName();
+            case "twelfthMarksheet" -> documentation.getTwelfthMarksheetName();
+            case "bachelorMarksheet" -> documentation.getBachelorMarksheetName();
+            case "masterMarksheet" -> documentation.getMasterMarksheetName();
+            case "familyIncomeCertificate" -> documentation.getFamilyIncomeCertificateName();
+            default -> null;
+        };
+
+        String fileName = resolvedName != null && !resolvedName.isBlank()
+                ? resolvedName
+                : filePath.getFileName() != null ? filePath.getFileName().toString() : "document";
+
+        String contentType;
+        try {
+            contentType = Files.probeContentType(filePath);
+        } catch (IOException e) {
+            contentType = null;
+        }
+
+        if (contentType == null || contentType.isBlank()) {
+            String lowerName = fileName.toLowerCase();
+            if (lowerName.endsWith(".pdf")) contentType = "application/pdf";
+            else if (lowerName.endsWith(".png")) contentType = "image/png";
+            else if (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg")) contentType = "image/jpeg";
+            else contentType = "application/octet-stream";
+        }
+
+        return new DocumentFileContent(fileName, contentType, new org.springframework.core.io.FileSystemResource(filePath));
+    }
+
 
     // =========================================================
     // CLEAN REMARKS
@@ -995,25 +1551,39 @@ public class DocumentationServiceImpl implements DocumentationService {
                 // Documents
                 .passportPhoto(
                         documentation.getPassportPhoto())
+                .passportPhotoName(
+                        documentation.getPassportPhotoName())
 
                 .aadharDocument(
                         documentation.getAadharDocument())
+                .aadharDocumentName(
+                        documentation.getAadharDocumentName())
 
                 .tenthMarksheet(
                         documentation.getTenthMarksheet())
+                .tenthMarksheetName(
+                        documentation.getTenthMarksheetName())
 
                 .twelfthMarksheet(
                         documentation.getTwelfthMarksheet())
+                .twelfthMarksheetName(
+                        documentation.getTwelfthMarksheetName())
 
                 .bachelorMarksheet(
                         documentation.getBachelorMarksheet())
+                .bachelorMarksheetName(
+                        documentation.getBachelorMarksheetName())
 
                 .masterMarksheet(
                         documentation.getMasterMarksheet())
+                .masterMarksheetName(
+                        documentation.getMasterMarksheetName())
 
                 .familyIncomeCertificate(
                         documentation
                                 .getFamilyIncomeCertificate())
+                .familyIncomeCertificateName(
+                        documentation.getFamilyIncomeCertificateName())
 
                 // Declaration
                 .declarationAccepted(
