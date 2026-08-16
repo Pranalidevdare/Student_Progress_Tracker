@@ -18,7 +18,6 @@ public class AttendanceRequest {
     @NotBlank(message = "Student Id is required")
     private String studentId;
 
-    @NotBlank(message = "Trainer Id is required")
     private String trainerId;
 
     @NotBlank(message = "Batch Id is required")
@@ -26,6 +25,9 @@ public class AttendanceRequest {
 
     @NotNull(message = "Attendance Date is required")
     private LocalDate attendanceDate;
+
+    @Builder.Default
+    private String sessionType = "TECHNICAL";
 
     @NotBlank(message = "Attendance Status is required")
     private String status;

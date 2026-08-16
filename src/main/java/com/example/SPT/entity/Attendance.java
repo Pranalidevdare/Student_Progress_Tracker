@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import lombok.AllArgsConstructor;
@@ -16,6 +17,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Document(collection = "attendance")
+@CompoundIndex(def = "{'studentId': 1, 'attendanceDate': 1, 'sessionType': 1}", unique = true)
 public class Attendance {
 
     @Id
@@ -36,8 +38,16 @@ public class Attendance {
     private LocalDate attendanceDate;
 
     /**
+     * TECHNICAL
+     * SOFT_SKILL
+     */
+    @Builder.Default
+    private String sessionType = "TECHNICAL";
+
+    /**
      * PRESENT
      * ABSENT
+     * LATE
      * LEAVE
      */
     private String status;

@@ -31,4 +31,12 @@ public class MaterialResponse {
 
     private String fileUrl;
 
+    private Long fileSize;
+
+    private String contentType;
+
+    private java.time.LocalDateTime uploadedAt;
+
+    private java.time.LocalDateTime updatedAt;
+
 }

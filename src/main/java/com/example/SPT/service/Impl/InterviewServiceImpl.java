@@ -1,25 +1,35 @@
 package com.example.SPT.service.Impl;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
 import com.example.SPT.dto.request.InterviewRequest;
+import com.example.SPT.dto.response.ApplicationResponse;
 import com.example.SPT.dto.response.InterviewResponse;
+import com.example.SPT.entity.Application;
 import com.example.SPT.entity.Interview;
 import com.example.SPT.entity.SelectionStatus;
 import com.example.SPT.entity.Student;
+import com.example.SPT.entity.User;
 import com.example.SPT.mapper.InterviewMapper;
+import com.example.SPT.repository.ApplicationRepository;
 import com.example.SPT.repository.InterviewRepository;
 import com.example.SPT.repository.StudentRepository;
+import com.example.SPT.repository.UserRepository;
 import com.example.SPT.service.InterviewService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class InterviewServiceImpl implements InterviewService {
 
     private static final int TECHNICAL_MAX = 40;
@@ -34,6 +44,8 @@ public class InterviewServiceImpl implements InterviewService {
     private final InterviewRepository interviewRepository;
     private final InterviewMapper interviewMapper;
     private final StudentRepository studentRepository;
+    private final ApplicationRepository applicationRepository;
+    private final UserRepository userRepository;
 
 
     // =========================================================
@@ -48,10 +60,39 @@ public class InterviewServiceImpl implements InterviewService {
 
         Student student = studentRepository
                 .findById(request.getStudentId())
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Student not found with id : "
-                                        + request.getStudentId()));
+                .or(() -> studentRepository.findByEmail(request.getStudentId()))
+                .orElse(null);
+
+        if (student == null) {
+            Optional<Application> appOpt = applicationRepository.findByApplicationNumber(request.getStudentId());
+            if (appOpt.isEmpty()) {
+                appOpt = applicationRepository.findById(request.getStudentId());
+            }
+            if (appOpt.isEmpty()) {
+                appOpt = applicationRepository.findByEmail(request.getStudentId());
+            }
+
+            if (appOpt.isPresent()) {
+                Application app = appOpt.get();
+                student = studentRepository.findByEmail(app.getEmail()).orElse(null);
+                if (student == null) {
+                    student = Student.builder()
+                            .id(app.getId())
+                            .firstName(app.getFullName() != null ? app.getFullName().split(" ")[0] : "Candidate")
+                            .lastName(app.getFullName() != null && app.getFullName().contains(" ") ? app.getFullName().substring(app.getFullName().indexOf(" ") + 1) : "")
+                            .email(app.getEmail())
+                            .mobile(app.getMobile())
+                            .batchId(request.getBatchId())
+                            .selectionStatus(SelectionStatus.TECHNICAL_PENDING)
+                            .createdAt(LocalDateTime.now())
+                            .updatedAt(LocalDateTime.now())
+                            .build();
+                    student = studentRepository.save(student);
+                }
+            } else {
+                throw new RuntimeException("Student not found with id : " + request.getStudentId());
+            }
+        }
 
         String interviewType = request.getInterviewType()
                 .trim()
@@ -630,5 +671,38 @@ public class InterviewServiceImpl implements InterviewService {
         return fullName.isBlank()
                 ? null
                 : fullName;
+    }
+
+    @Override
+    public List<ApplicationResponse> getEligibleInterviewCandidates(String trainerEmail) {
+        log.info("Fetching eligible interview candidates for trainer: '{}'", trainerEmail);
+        List<Application> allApps = applicationRepository.findAll();
+        if (allApps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return allApps.stream()
+                .map(this::mapApplicationToResponse)
+                .collect(Collectors.toList());
+    }
+
+    private ApplicationResponse mapApplicationToResponse(Application app) {
+        if (app == null) return null;
+        return ApplicationResponse.builder()
+                .id(app.getId())
+                .applicationNumber(app.getApplicationNumber())
+                .status(app.getStatus())
+                .fullName(app.getFullName())
+                .email(app.getEmail())
+                .mobile(app.getMobile())
+                .collegeName(app.getCollegeName())
+                .branch(app.getBranch())
+                .yearOfStudy(app.getYearOfStudy())
+                .familyIncome(app.getFamilyIncome())
+                .interestedInITEP(app.getInterestedInITEP())
+                .joinedWhatsappGroup(app.getJoinedWhatsappGroup())
+                .adminRemarks(app.getAdminRemarks())
+                .createdAt(app.getCreatedAt())
+                .build();
     }
 }

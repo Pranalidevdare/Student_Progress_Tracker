@@ -4,8 +4,14 @@ import java.util.List;
 
 import com.example.SPT.dto.request.AssignmentRequest;
 import com.example.SPT.dto.request.AssignmentSubmissionRequest;
+import com.example.SPT.dto.request.EvaluationRequest;
+import com.example.SPT.dto.request.TrainerBatchSwitchRequest;
 import com.example.SPT.dto.response.AssignmentResponse;
+import com.example.SPT.dto.response.AssignmentSubmissionDetailResponse;
 import com.example.SPT.dto.response.StudentAssignmentResponse;
+import com.example.SPT.dto.response.TrainerAssignmentStatsResponse;
+import com.example.SPT.dto.response.TrainerResponse;
+import com.example.SPT.entity.Batch;
 
 public interface AssignmentService {
 
@@ -20,4 +26,20 @@ public interface AssignmentService {
     List<StudentAssignmentResponse> getStudentAssignments(String studentId, String batchId);
 
     void submitAssignment(AssignmentSubmissionRequest request);
+
+    TrainerAssignmentStatsResponse getAssignmentStatistics(String batchId);
+
+    List<AssignmentSubmissionDetailResponse> getAssignmentSubmissions(String assignmentId, String batchId);
+
+    AssignmentSubmissionDetailResponse evaluateSubmission(String submissionId, EvaluationRequest request, String trainerEmail);
+
+    List<Batch> getAllBatches();
+
+    TrainerResponse switchTrainerBatch(String trainerEmail, TrainerBatchSwitchRequest request);
+
+    AssignmentResponse getAssignmentById(String id);
+
+    TrainerAssignmentStatsResponse getSingleAssignmentStatistics(String assignmentId, String batchId);
+
+    AssignmentSubmissionDetailResponse getStudentAssignmentSubmission(String assignmentId, String studentId);
 }

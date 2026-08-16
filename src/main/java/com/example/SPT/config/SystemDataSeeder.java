@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import com.example.SPT.entity.*;
 import com.example.SPT.enums.*;
 import com.example.SPT.repository.*;
+import com.example.SPT.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -58,6 +59,7 @@ public class SystemDataSeeder {
     }
 
     public void seedDatabase() throws Exception {
+        log.info("Connecting to MongoDB Atlas...");
 
         // Check if full seeding has already occurred
         if (batchRepository.count() > 0) {
@@ -585,7 +587,19 @@ public class SystemDataSeeder {
                 .updatedAt(LocalDateTime.now())
                 .build());
 
+        long usersInserted = userRepository.count();
+        long batchesInserted = batchRepository.count();
+        long studentsInserted = studentRepository.count();
+        long applicationsInserted = applicationRepository.count();
+        long aptitudeQuestionsInserted = 0L;
+
         log.info("System Data Seeder: ALL SAMPLE DATA SEEDED SUCCESSFULLY!");
+        log.info("MongoDB connection closed.");
+        log.info("Users inserted: {}", usersInserted);
+        log.info("Batches inserted: {}", batchesInserted);
+        log.info("Students inserted: {}", studentsInserted);
+        log.info("Applications inserted: {}", applicationsInserted);
+        log.info("Aptitude questions inserted: {}", aptitudeQuestionsInserted);
         log.info("    Accounts available:");
         log.info("    ADMIN:   admin@spt.com           / admin123");
         log.info("    ADMIN:   admin.infobeans@spt.com / admin123");

@@ -1,5 +1,9 @@
 package com.example.SPT.dto.request;
 
+import java.util.List;
+
+import com.example.SPT.entity.QuestionAnswer;
+
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,4 +25,8 @@ public class AssignmentSubmissionRequest {
     private String submissionFileUrl;
 
     private String submissionRemarks;
+
+    private List<QuestionAnswer> questionAnswers;
+
+    private String submissionStatus; // "DRAFT" or "SUBMITTED"
 }

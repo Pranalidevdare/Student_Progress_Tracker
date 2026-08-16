@@ -76,6 +76,7 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
 
         return AuthResponse.builder()
+                .id(user.getId())
                 .message("Registration Successful")
                 .id(user.getId())
                 .email(user.getEmail())
@@ -126,6 +127,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         return AuthResponse.builder()
+                .id(user.getId())
                 .token(token)
                 .message(mustChangePassword ? "Password change required" : "Login Successful")
                 .id(resolvedId)

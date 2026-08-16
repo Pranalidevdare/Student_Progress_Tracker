@@ -45,4 +45,13 @@ public class TrainerInterviewController {
                 interviewService.getInterviewByStudent(studentId));
     }
 
+    @GetMapping({"/candidates", "/applications", ""})
+    public ResponseEntity<java.util.List<com.example.SPT.dto.response.ApplicationResponse>> getEligibleCandidates(
+            org.springframework.security.core.Authentication authentication) {
+
+        String trainerEmail = (authentication != null) ? authentication.getName() : null;
+        return ResponseEntity.ok(
+                interviewService.getEligibleInterviewCandidates(trainerEmail));
+    }
+
 }

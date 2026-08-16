@@ -1,6 +1,9 @@
 package com.example.SPT.dto.request;
 
 import java.time.LocalDate;
+import java.util.List;
+
+import com.example.SPT.entity.AssignmentQuestion;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -27,7 +30,15 @@ public class AssessmentRequest {
     @NotBlank(message = "Subject is required")
     private String subject;
 
+    private String assessmentType;
+
     private String description;
+
+    private String attachmentUrl;
+
+    private String questionSource; // "MANUAL" or "PDF"
+
+    private List<AssignmentQuestion> questions;
 
     @NotNull(message = "Total Marks is required")
     private Integer totalMarks;
@@ -38,7 +49,10 @@ public class AssessmentRequest {
     @NotNull(message = "Assessment Date is required")
     private LocalDate assessmentDate;
 
-    @NotNull(message = "Submission Date is required")
+    private String startTime; // e.g. "10:00 AM"
+
+    private String endTime;   // e.g. "11:00 AM"
+
     private LocalDate lastSubmissionDate;
 
     private String status;

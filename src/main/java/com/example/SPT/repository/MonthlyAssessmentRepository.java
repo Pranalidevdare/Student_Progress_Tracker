@@ -14,4 +14,6 @@ public interface MonthlyAssessmentRepository extends MongoRepository<MonthlyAsse
 
     List<MonthlyAssessment> findByTrainerId(String trainerId);
 
+    List<MonthlyAssessment> findByBatchIdAndAssessmentDateBetween(String batchId, java.time.LocalDate startDate, java.time.LocalDate endDate);
+
 }

@@ -43,6 +43,8 @@ public class StudyMaterial {
     // File Details
     private String fileName;
     private String fileUrl;
+    private Long fileSize;
+    private String contentType;
 
     // Audit Fields
     private LocalDateTime uploadedAt;

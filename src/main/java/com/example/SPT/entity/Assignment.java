@@ -2,6 +2,7 @@ package com.example.SPT.entity;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -32,6 +33,14 @@ public class Assignment {
     private String title;
     private String description;
     private String subject;
+
+    // Question Source & Questions
+    /**
+     * MANUAL
+     * PDF
+     */
+    private String questionSource;
+    private List<AssignmentQuestion> questions;
 
     // Marks
     private Integer totalMarks;

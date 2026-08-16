@@ -57,7 +57,7 @@ export const AuthProvider = ({ children }) => {
 
   const loginUser = (data, meta = null) => {
     const userData = {
-      id: data.id || data.studentId || meta?.id || data.email,
+      id: data.id || data.studentId || meta?.id || localStorage.getItem('trainerId') || data.email,
       studentId: data.studentId || data.id,
       email: data.email,
       fullName: data.fullName,

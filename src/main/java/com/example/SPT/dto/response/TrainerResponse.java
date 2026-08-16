@@ -23,6 +23,7 @@ public class TrainerResponse {
 
     private String mobile;
 
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate dateOfBirth;
 
     private String gender;
@@ -36,6 +37,8 @@ public class TrainerResponse {
     private Integer experience;
 
     private String batchId;
+
+    private String batchName;
 
     private String profileImage;
 
