@@ -98,7 +98,7 @@ public class AssignmentServiceImpl implements AssignmentService {
         enrichAssignmentResponseStats(response, savedAssignment.getBatchId(), savedAssignment.getDueDate());
 
         try {
-            notificationService.createBatchNotification(
+            notificationService.createBatchNotifications(
                 savedAssignment.getBatchId(),
                 "New Assignment Posted",
                 "Assignment '" + savedAssignment.getTitle() + "' has been assigned. Due: " + savedAssignment.getDueDate(),
@@ -410,10 +410,10 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .batchName(batchName)
                 .totalAssignments(totalAssignments)
                 .totalStudents(totalStudents)
-                .submittedCount(totalSubmitted)
-                .evaluatedCount(totalEvaluated)
-                .pendingEvaluationCount(pendingEvaluation)
-                .pendingSubmissionCount(totalPending)
+                .totalSubmitted(totalSubmitted)
+                .totalEvaluated(totalEvaluated)
+                .pendingEvaluation(pendingEvaluation)
+                .totalPending(totalPending)
                 .build();
     }
 
@@ -480,19 +480,14 @@ public class AssignmentServiceImpl implements AssignmentService {
                     .submissionId(subId)
                     .assignmentId(assignment.getId())
                     .assignmentTitle(assignment.getTitle())
-                    .totalMarks(assignment.getTotalMarks())
+                    .maxMarks(assignment.getTotalMarks())
                     .studentId(s.getId())
-                    .studentCode(s.getStudentId())
                     .studentName(s.getFirstName() + " " + s.getLastName())
                     .studentEmail(s.getEmail())
-                    .batchId(s.getBatchId())
-                    .batchName(s.getBatchName())
                     .submissionFileUrl(subFileUrl)
                     .submissionRemarks(subRemarks)
                     .submittedAt(subAt)
                     .obtainedMarks(obtainedMarks)
-                    .percentage(pct)
-                    .grade(grade)
                     .trainerRemarks(trainerRemarks)
                     .status(computedStatus)
                     .dueDate(assignment.getDueDate())
@@ -522,18 +517,9 @@ public class AssignmentServiceImpl implements AssignmentService {
         submission.setObtainedMarks(request.getObtainedMarks());
         submission.setTrainerRemarks(request.getTrainerRemarks());
         submission.setStatus("EVALUATED");
-        submission.setEvaluatedAt(LocalDateTime.now());
-        submission.setEvaluatedBy(trainerEmail);
         submission.setUpdatedAt(LocalDateTime.now());
 
         AssignmentSubmission saved = assignmentSubmissionRepository.save(submission);
-
-        Double pct = null;
-        String grade = null;
-        if (saved.getObtainedMarks() != null && assignment.getTotalMarks() != null && assignment.getTotalMarks() > 0) {
-            pct = (saved.getObtainedMarks().doubleValue() / assignment.getTotalMarks().doubleValue()) * 100.0;
-            grade = calculateGrade(pct);
-        }
 
         Student student = studentRepository.findById(saved.getStudentId()).orElse(null);
 
@@ -541,18 +527,14 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .submissionId(saved.getId())
                 .assignmentId(assignment.getId())
                 .assignmentTitle(assignment.getTitle())
-                .totalMarks(assignment.getTotalMarks())
+                .maxMarks(assignment.getTotalMarks())
                 .studentId(saved.getStudentId())
-                .studentCode(student != null ? student.getStudentId() : null)
                 .studentName(saved.getStudentName() != null ? saved.getStudentName() : (student != null ? student.getFirstName() + " " + student.getLastName() : "Student"))
                 .studentEmail(student != null ? student.getEmail() : null)
-                .batchId(saved.getBatchId())
                 .submissionFileUrl(saved.getSubmissionFileUrl())
                 .submissionRemarks(saved.getSubmissionRemarks())
                 .submittedAt(saved.getSubmittedAt())
                 .obtainedMarks(saved.getObtainedMarks())
-                .percentage(pct)
-                .grade(grade)
                 .trainerRemarks(saved.getTrainerRemarks())
                 .status("EVALUATED")
                 .dueDate(assignment.getDueDate())
@@ -569,8 +551,8 @@ public class AssignmentServiceImpl implements AssignmentService {
         Trainer trainer = trainerRepository.findByEmail(trainerEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Trainer not found with email: " + trainerEmail));
 
-        Batch batch = batchRepository.findById(request.getTargetBatchId())
-                .orElseThrow(() -> new ResourceNotFoundException("Target batch not found with id: " + request.getTargetBatchId()));
+        Batch batch = batchRepository.findById(request.getBatchId())
+                .orElseThrow(() -> new ResourceNotFoundException("Target batch not found with id: " + request.getBatchId()));
 
         trainer.setBatchId(batch.getId());
         trainer.setBatchName(batch.getBatchName());
@@ -615,10 +597,10 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .batchName(batchName)
                 .totalAssignments(1L)
                 .totalStudents(totalStudents)
-                .submittedCount(totalSubmitted)
-                .evaluatedCount(totalEvaluated)
-                .pendingEvaluationCount(pendingEvaluation)
-                .pendingSubmissionCount(pendingSubmission)
+                .totalSubmitted(totalSubmitted)
+                .totalEvaluated(totalEvaluated)
+                .pendingEvaluation(pendingEvaluation)
+                .totalPending(pendingSubmission)
                 .build();
     }
 
@@ -648,8 +630,6 @@ public class AssignmentServiceImpl implements AssignmentService {
         LocalDateTime subAt = null;
         Integer obtainedMarks = null;
         String trainerRemarks = null;
-        Double pct = null;
-        String grade = null;
 
         if (sub != null) {
             subId = sub.getId();
@@ -661,10 +641,6 @@ public class AssignmentServiceImpl implements AssignmentService {
 
             if ("EVALUATED".equalsIgnoreCase(sub.getStatus()) || obtainedMarks != null) {
                 computedStatus = "EVALUATED";
-                if (obtainedMarks != null && assignment.getTotalMarks() != null && assignment.getTotalMarks() > 0) {
-                    pct = (obtainedMarks.doubleValue() / assignment.getTotalMarks().doubleValue()) * 100.0;
-                    grade = calculateGrade(pct);
-                }
             } else {
                 computedStatus = "SUBMITTED";
             }
@@ -678,18 +654,14 @@ public class AssignmentServiceImpl implements AssignmentService {
                 .submissionId(subId)
                 .assignmentId(assignment.getId())
                 .assignmentTitle(assignment.getTitle())
-                .totalMarks(assignment.getTotalMarks())
+                .maxMarks(assignment.getTotalMarks())
                 .studentId(student != null ? student.getId() : studentId)
-                .studentCode(student != null ? student.getStudentId() : null)
                 .studentName(sub != null && sub.getStudentName() != null ? sub.getStudentName() : (student != null ? student.getFirstName() + " " + student.getLastName() : "Student"))
                 .studentEmail(student != null ? student.getEmail() : null)
-                .batchId(assignment.getBatchId())
                 .submissionFileUrl(subFileUrl)
                 .submissionRemarks(subRemarks)
                 .submittedAt(subAt)
                 .obtainedMarks(obtainedMarks)
-                .percentage(pct)
-                .grade(grade)
                 .trainerRemarks(trainerRemarks)
                 .status(computedStatus)
                 .dueDate(assignment.getDueDate())

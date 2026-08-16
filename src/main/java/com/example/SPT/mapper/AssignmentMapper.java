@@ -2,6 +2,7 @@ package com.example.SPT.mapper;
 
 import org.springframework.stereotype.Component;
 
+import com.example.SPT.dto.request.AssignmentRequest;
 import com.example.SPT.dto.response.AssignmentResponse;
 import com.example.SPT.entity.Assignment;
 
@@ -29,6 +30,27 @@ public class AssignmentMapper {
                 .dueDate(assignment.getDueDate())
                 .attachmentUrl(assignment.getAttachmentUrl())
                 .status(assignment.getStatus())
+                .build();
+    }
+
+    public Assignment toEntity(AssignmentRequest request) {
+        if (request == null) {
+            return null;
+        }
+
+        return Assignment.builder()
+                .trainerId(request.getTrainerId())
+                .batchId(request.getBatchId())
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .subject(request.getSubject())
+                .questionSource(request.getQuestionSource())
+                .questions(request.getQuestions())
+                .totalMarks(request.getTotalMarks())
+                .assignedDate(request.getAssignedDate())
+                .dueDate(request.getDueDate())
+                .attachmentUrl(request.getAttachmentUrl())
+                .status(request.getStatus() != null ? request.getStatus() : "ACTIVE")
                 .build();
     }
 }

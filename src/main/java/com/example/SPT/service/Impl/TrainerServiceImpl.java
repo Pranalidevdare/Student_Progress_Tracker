@@ -37,6 +37,7 @@ import com.example.SPT.repository.AssignmentSubmissionRepository;
 import com.example.SPT.repository.AttendanceRepository;
 import com.example.SPT.repository.BatchRepository;
 import com.example.SPT.repository.GuestSessionRepository;
+import com.example.SPT.repository.InterviewRepository;
 import com.example.SPT.exception.ResourceNotFoundException;
 import com.example.SPT.repository.MonthlyAssessmentRepository;
 import com.example.SPT.repository.NoticeRepository;

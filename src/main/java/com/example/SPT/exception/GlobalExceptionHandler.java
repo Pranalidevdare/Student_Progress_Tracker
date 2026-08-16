@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -17,10 +18,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 
-import lombok.extern.slf4j.Slf4j;
-
 @RestControllerAdvice
-@Slf4j
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
@@ -45,6 +43,16 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
     }
 
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+        log.error("Access denied", ex);
+        ErrorResponse response = new ErrorResponse(
+                HttpStatus.FORBIDDEN.value(),
+                ex.getMessage() != null ? ex.getMessage() : "Access Denied",
+                LocalDateTime.now());
+        return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
@@ -56,7 +64,6 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
     }
 
-<<<<<<< HEAD
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
         log.error("HttpMessageNotReadableException", ex);
@@ -90,24 +97,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccountDisabledException.class)
     public ResponseEntity<ErrorResponse> handleAccountDisabled(AccountDisabledException ex) {
         log.error("Account disabled", ex);
-=======
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
-        ErrorResponse response = new ErrorResponse(
-                HttpStatus.BAD_REQUEST.value(),
-                ex.getMessage(),
-                LocalDateTime.now());
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-    }
-
-    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
-    public ResponseEntity<ErrorResponse> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
->>>>>>> origin/trainer
         ErrorResponse response = new ErrorResponse(
                 HttpStatus.FORBIDDEN.value(),
                 ex.getMessage(),
                 LocalDateTime.now());
-<<<<<<< HEAD
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 
@@ -149,19 +142,11 @@ public class GlobalExceptionHandler {
                 "One or more files are too large.",
                 LocalDateTime.now());
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(response);
-=======
-        return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
->>>>>>> origin/trainer
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(Exception ex) {
-<<<<<<< HEAD
-        log.error("Unhandled application exception", ex);
-=======
         log.error("Unhandled Exception caught in GlobalExceptionHandler: {}", ex.getMessage(), ex);
-
->>>>>>> origin/trainer
         ErrorResponse response = new ErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 ex.getMessage() != null ? ex.getMessage() : "Something went wrong",

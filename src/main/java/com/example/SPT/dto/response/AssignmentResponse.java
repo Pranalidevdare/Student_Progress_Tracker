@@ -49,5 +49,5 @@ public class AssignmentResponse {
     private Integer pendingCount;
     private Integer evaluatedCount;
     private Integer pendingEvaluationCount;
-
+    private Integer daysRemaining;
 }

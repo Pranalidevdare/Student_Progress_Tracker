@@ -23,8 +23,6 @@ public class AuthResponse {
 
     private String message;
 
-    private String id;
-
     private String studentId;
 
     private String email;
