@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { getAllTrainers } from '../api/trainerApi';
-import api from '../api/axios';
-import { applicationApi, aptitudeApi, adminApi } from '../api/apiServices';
+import { useAuth } from '../../context/AuthContext';
+import { getAllTrainers } from '../../api/trainerApi';
+import api from '../../api/axios';
+import { applicationApi, aptitudeApi, adminApi } from '../../api/apiServices';
 import {
   ShieldCheck, UserPlus, Users, BookOpen, Layers, Search, X, Check,
   Mail, Phone, FileText, CheckCircle2, XCircle, Calendar, Send, Home, UserCheck, RefreshCw, Filter, Eye, ExternalLink, Trophy, CalendarCheck, Award, TrendingUp, Lock

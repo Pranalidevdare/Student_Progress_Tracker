@@ -13,7 +13,7 @@ import Login from './pages/Login';
 import RoleDashboardDispatcher from './pages/RoleDashboardDispatcher';
 import Dashboard from './pages/Dashboard';
 import StudentDashboard from './pages/StudentDashboard';
-import AdminDashboard from './pages/AdminDashboard';
+import AdminDashboard from './pages/public/AdminDashboard';
 import Profile from './pages/Profile';
 import Assignments from './pages/Assignments';
 import Assessments from './pages/Assessments';

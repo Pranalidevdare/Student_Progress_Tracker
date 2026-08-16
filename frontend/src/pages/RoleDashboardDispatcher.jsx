@@ -2,7 +2,7 @@ import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import Dashboard from './Dashboard';
 import StudentDashboard from './StudentDashboard';
-import AdminDashboard from './AdminDashboard';
+import AdminDashboard from './public/AdminDashboard';
 
 export default function RoleDashboardDispatcher() {
   const { user } = useAuth();
