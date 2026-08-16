@@ -228,7 +228,10 @@ public class DocumentationSubmitRequest {
      */
     private MultipartFile masterMarksheet;
 
-    @NotNull(message = "Family income certificate is required")
+    /*
+     * Optional because the income certificate is not always required by the admission workflow.
+     * The service validates it only when the file is actually present.
+     */
     private MultipartFile familyIncomeCertificate;
 
 

@@ -24,7 +24,21 @@ export const applicationApi = {
   updateStatus: (id, status, remarks = '') => api.patch(`/api/admin/applications/updateStatus/${id}`, { status, remarks }),
   delete: (id) => api.delete(`/api/admin/applications/delete/${id}`),
   createStudent: (id) => api.post(`/api/admin/applications/${id}/create-student`),
-  getEnrollmentLetter: (id) => api.get(`/api/admin/applications/${id}/enrollment-letter`)
+  getEnrollmentLetter: (id) => api.get(`/api/admin/applications/${id}/enrollment-letter`),
+  assignBatch: (applicationId, batchId) => api.post('/api/admin/applications/assign-batch', { applicationId, batchId }),
+  changeBatch: (applicationId, batchId) => api.patch('/api/admin/applications/change-batch', { applicationId, batchId })
+};
+
+// ─── BATCH MANAGEMENT APIs ────────────────────────────────────────────
+export const batchApi = {
+  getAll: () => api.get('/api/batches'),
+  getActive: () => api.get('/api/batches/active'),
+  getById: (id) => api.get(`/api/batches/${id}`),
+  getByName: (name) => api.get(`/api/batches/by-name/${name}`),
+  getByStatus: (status) => api.get(`/api/batches/status/${status}`),
+  getByCourse: (courseName) => api.get(`/api/batches/course?courseName=${courseName}`),
+  hasCapacity: (batchId) => api.get(`/api/batches/${batchId}/has-capacity`),
+  getAvailableCapacity: (batchId) => api.get(`/api/batches/${batchId}/available-capacity`)
 };
 
 // ─── ONLINE APTITUDE TEST APIs ─────────────────────────────────────────
@@ -39,88 +53,302 @@ export const aptitudeApi = {
 };
 
 // ─── DOCUMENTATION APIs ────────────────────────────────────────────────
+// ─── DOCUMENTATION APIs ────────────────────────────────────────────────
 export const documentationApi = {
-  submitDocumentation: (applicationId, payload, files = {}) => {
-    const formData = new FormData();
-    formData.append('applicationId', applicationId);
 
-    const stringFields = {
+  submitDocumentation: async (
+    applicationId,
+    payload,
+    files = {}
+  ) => {
+
+    const formData = new FormData();
+
+    // =========================================================
+    // APPLICATION
+    // =========================================================
+
+    formData.append(
+      'applicationId',
+      String(applicationId)
+    );
+
+    // =========================================================
+    // PERSONAL DETAILS
+    // =========================================================
+
+    const fields = {
       candidateName: payload.candidateName,
       dateOfBirth: payload.dateOfBirth,
       age: payload.age,
       gender: payload.gender,
       otherGender: payload.otherGender,
+
       fatherName: payload.fatherName,
       fatherOccupation: payload.fatherOccupation,
+
       motherName: payload.motherName,
       motherOccupation: payload.motherOccupation,
+
       firstGraduate: payload.firstGraduate,
       maritalStatus: payload.maritalStatus,
+
+      // =====================================================
+      // MAILING ADDRESS
+      // =====================================================
+
       mailingFullName: payload.mailingFullName,
       mailingAddress: payload.mailingAddress,
       mailingPincode: payload.mailingPincode,
       personalMobile: payload.personalMobile,
       personalEmail: payload.personalEmail,
+
+      // =====================================================
+      // GUARDIAN
+      // =====================================================
+
       guardianFullName: payload.guardianFullName,
       guardianAddress: payload.guardianAddress,
       guardianPincode: payload.guardianPincode,
       guardianMobile: payload.guardianMobile,
       guardianLandline: payload.guardianLandline,
+
+      // =====================================================
+      // 10TH
+      // =====================================================
+
       tenthSchoolName: payload.tenthSchoolName,
       tenthBoard: payload.tenthBoard,
       tenthPassingYear: payload.tenthPassingYear,
       tenthMarks: payload.tenthMarks,
       tenthPercentage: payload.tenthPercentage,
+
+      // =====================================================
+      // 12TH
+      // =====================================================
+
       twelfthSchoolName: payload.twelfthSchoolName,
       twelfthBoard: payload.twelfthBoard,
       twelfthPassingYear: payload.twelfthPassingYear,
       twelfthMarks: payload.twelfthMarks,
       twelfthPercentage: payload.twelfthPercentage,
+
+      // =====================================================
+      // GRADUATION
+      // =====================================================
+
       graduationCollege: payload.graduationCollege,
       graduationDegree: payload.graduationDegree,
       graduationMarks: payload.graduationMarks,
       graduationPercentage: payload.graduationPercentage,
       graduationPassingYear: payload.graduationPassingYear,
-      postGraduationCollege: payload.postGraduationCollege,
-      postGraduationDegree: payload.postGraduationDegree,
-      postGraduationPassingYear: payload.postGraduationPassingYear,
-      postGraduationMarks: payload.postGraduationMarks,
-      postGraduationPercentage: payload.postGraduationPercentage,
-      declarationAccepted: payload.declarationAccepted ? 'true' : 'false'
+
+      // =====================================================
+      // POST GRADUATION
+      // =====================================================
+
+      postGraduationCollege:
+        payload.postGraduationCollege,
+
+      postGraduationDegree:
+        payload.postGraduationDegree,
+
+      postGraduationPassingYear:
+        payload.postGraduationPassingYear,
+
+      postGraduationMarks:
+        payload.postGraduationMarks,
+
+      postGraduationPercentage:
+        payload.postGraduationPercentage,
+
+      // =====================================================
+      // DECLARATION
+      // =====================================================
+
+      declarationAccepted:
+        payload.declarationAccepted
     };
 
-    Object.entries(stringFields).forEach(([key, value]) => {
-      if (value !== null && value !== undefined && value !== '') {
-        formData.append(key, String(value));
-      }
-    });
+    // =========================================================
+    // APPEND TEXT FIELDS
+    // =========================================================
 
-    const fileFields = [
+    Object.entries(fields).forEach(
+      ([key, value]) => {
+
+        if (
+          value !== undefined &&
+          value !== null &&
+          value !== ''
+        ) {
+          formData.append(
+            key,
+            String(value)
+          );
+        }
+
+      }
+    );
+
+    // =========================================================
+    // REQUIRED DOCUMENT FILES
+    // =========================================================
+
+    const requiredFiles = [
       'passportPhoto',
       'aadharDocument',
       'tenthMarksheet',
       'twelfthMarksheet',
-      'bachelorMarksheet',
-      'masterMarksheet',
-      'familyIncomeCertificate'
+      'bachelorMarksheet'
     ];
 
-    fileFields.forEach((fieldName) => {
-      const file = files[fieldName];
-      if (file) {
-        formData.append(fieldName, file);
-      }
-    });
+    for (const fieldName of requiredFiles) {
 
-    return api.post('/api/documentations/submit', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
+      const file = files[fieldName];
+
+      if (!(file instanceof File)) {
+
+        throw new Error(
+          `${fieldName} is required.`
+        );
+      }
+
+      formData.append(
+        fieldName,
+        file
+      );
+    }
+
+    if (files.familyIncomeCertificate instanceof File) {
+      formData.append(
+        'familyIncomeCertificate',
+        files.familyIncomeCertificate
+      );
+    }
+
+    // =========================================================
+    // OPTIONAL MASTER MARKSHEET
+    // =========================================================
+
+    if (
+      files.masterMarksheet instanceof File
+    ) {
+      formData.append(
+        'masterMarksheet',
+        files.masterMarksheet
+      );
+    }
+
+    // =========================================================
+    // DEBUG
+    // =========================================================
+
+    console.log(
+      '========== DOCUMENTATION FORMDATA =========='
+    );
+
+    for (const [key, value] of formData.entries()) {
+
+      if (value instanceof File) {
+
+        console.log(
+          `${key}: FILE`,
+          {
+            name: value.name,
+            type: value.type,
+            size: value.size
+          }
+        );
+
+      } else {
+
+        console.log(
+          `${key}:`,
+          value
+        );
+      }
+    }
+
+    console.log(
+      '==========================================='
+    );
+
+    // =========================================================
+    // SEND TO SPRING BOOT
+    // =========================================================
+
+    // IMPORTANT:
+    // DO NOT manually set Content-Type.
+    // Browser/Axios automatically adds:
+    //
+    // multipart/form-data;
+    // boundary=---------------------------
+    //
+    // Spring needs that boundary to parse the request.
+
+    return api.post(
+      '/api/documentations/submit',
+      formData
+    );
   },
-  getByApplicationId: (applicationId) => api.get(`/api/documentations/application/${applicationId}`),
-  getByApplicationNumber: (applicationNumber) => api.get(`/api/documentations/application/${applicationNumber}`),
-  getAll: () => api.get('/api/admin/documentations'),
-  verify: (documentId, remarks = '') => api.patch(`/api/admin/documentations/${documentId}/verify`, null, { params: { remarks } }),
-  reject: (documentId, remarks = '') => api.patch(`/api/admin/documentations/${documentId}/reject`, null, { params: { remarks } })
+
+  // =========================================================
+  // GET DOCUMENTATION BY APPLICATION ID
+  // =========================================================
+
+  getByApplicationId: (applicationId) =>
+    api.get(
+      `/api/documentations/application/${applicationId}`
+    ),
+
+  getDocumentFileUrl: (applicationId, documentType) =>
+    `${api.defaults.baseURL || 'http://localhost:8080'}/api/documentations/application/${applicationId}/file/${documentType}`,
+
+  // =========================================================
+  // GET ALL DOCUMENTATIONS
+  // =========================================================
+
+  getAll: () =>
+    api.get(
+      '/api/admin/documentations'
+    ),
+
+  // =========================================================
+  // VERIFY
+  // =========================================================
+
+  verify: (
+    documentId,
+    remarks = ''
+  ) =>
+    api.patch(
+      `/api/admin/documentations/${documentId}/verify`,
+      null,
+      {
+        params: {
+          remarks
+        }
+      }
+    ),
+
+  // =========================================================
+  // REJECT
+  // =========================================================
+
+  reject: (
+    documentId,
+    remarks = ''
+  ) =>
+    api.patch(
+      `/api/admin/documentations/${documentId}/reject`,
+      null,
+      {
+        params: {
+          remarks
+        }
+      }
+    )
 };
 
 // ─── SELECTION STAGE APIs ──────────────────────────────────────────────

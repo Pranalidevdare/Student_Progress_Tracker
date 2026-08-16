@@ -11,12 +11,13 @@ import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import toast from 'react-hot-toast';
 import { aptitudeApi, applicationApi } from '../../api/apiServices';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const DEFAULT_QUESTIONS = [];
 const APTITUDE_STORAGE_KEY = 'spt_aptitude_progress';
 
 export default function AptitudeTestPage() {
+  const navigate = useNavigate();
   const [candidateId, setCandidateId] = useState('');
   const [testStarted, setTestStarted] = useState(false);
   const [questions, setQuestions] = useState(DEFAULT_QUESTIONS);
@@ -250,13 +251,14 @@ export default function AptitudeTestPage() {
         answers: answersArray
       };
 
-      const res = await aptitudeApi.submitTest(payload);
-      const result = res.data;
+      await aptitudeApi.submitTest(payload);
 
       setSubmitted(true);
-      setScore(result.marksObtained || 0);
+      setScore(null);
+      sessionStorage.removeItem(APTITUDE_STORAGE_KEY);
 
       toast.success('Aptitude Test submitted successfully!');
+      navigate(`/result?candidateId=${encodeURIComponent(candidateId.trim())}`);
     } catch (err) {
       console.error('Submit test error', err);
       toast.error('Failed to submit exam. Please try again or contact support.');

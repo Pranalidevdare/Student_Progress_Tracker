@@ -1,10 +1,13 @@
 package com.example.SPT.security;
 
+import java.util.List;
+
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import com.example.SPT.entity.User;
 import com.example.SPT.repository.UserRepository;
 
 
@@ -21,9 +24,17 @@ public class CustomUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String email)
             throws UsernameNotFoundException {
 
-        return userRepository.findByEmail(email)
-                .orElseThrow(() ->
-                        new UsernameNotFoundException("User not found"));
+        List<User> users = userRepository.findAllByEmail(email);
+
+        if (users.isEmpty()) {
+            throw new UsernameNotFoundException("User not found");
+        }
+
+        if (users.size() > 1) {
+            throw new UsernameNotFoundException("Multiple user records found for this email");
+        }
+
+        return users.get(0);
     }
 
 }

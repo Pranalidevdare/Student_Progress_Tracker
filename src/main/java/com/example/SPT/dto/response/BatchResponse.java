@@ -31,5 +31,7 @@ public class BatchResponse {
 
     private Integer capacity;
 
+    private Integer enrolledCount;
+
     private BatchStatus status;
 }

@@ -23,7 +23,7 @@ export default function Assignments() {
 
   const studentId = user?.id || user?.studentId || user?.email || 'STU001';
   const trainerId = user?.id || localStorage.getItem('trainerId') || 'TRN101';
-  const batchId = user?.batchId || user?.batch || 'BATCH001';
+  const batchId = user?.batchId || user?.batch || localStorage.getItem('batchId') || 'BATCH001';
 
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);

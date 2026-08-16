@@ -1,6 +1,8 @@
 package com.example.SPT.service.Impl;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -91,17 +93,22 @@ public class AuthServiceImpl implements AuthService {
                         request.getEmail(),
                         request.getPassword()));
 
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() ->
-                new BadCredentialsException("Invalid Email or Password"));
+        List<User> users = userRepository.findAllByEmail(request.getEmail());
 
-        
+        if (users.size() > 1) {
+            throw new BadCredentialsException("Multiple user accounts found for this email");
+        }
+
+        User user = users.stream().findFirst()
+                .orElseThrow(() -> new BadCredentialsException("Invalid Email or Password"));
+
         if (!user.isEnabled()) {
             throw new AccountDisabledException(
                     "Your account has been disabled. Please contact the administrator.");
         }
 
-        String token = jwtService.generateToken(user.getEmail());
+        boolean mustChangePassword = Boolean.TRUE.equals(user.getMustChangePassword());
+        String token = jwtService.generateToken(user.getEmail(), mustChangePassword);
 
         String resolvedId = user.getId();
         String resolvedStudentId = null;
@@ -120,14 +127,53 @@ public class AuthServiceImpl implements AuthService {
 
         return AuthResponse.builder()
                 .token(token)
-                .message("Login Successful")
+                .message(mustChangePassword ? "Password change required" : "Login Successful")
                 .id(resolvedId)
                 .studentId(resolvedStudentId)
+                .mustChangePassword(mustChangePassword)
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .role(user.getRole())
                 .trainerType(user.getTrainerType())
+                .mustChangePassword(mustChangePassword)
                 .build();
+    }
+
+    public AuthResponse changePassword(String email, String currentPassword, String newPassword) {
+        List<User> users = userRepository.findAllByEmail(email);
+
+        if (users.size() > 1) {
+            throw new BadCredentialsException("Multiple user accounts found for this email");
+        }
+
+        User user = users.stream().findFirst()
+                .orElseThrow(() -> new BadCredentialsException("User not found"));
+
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new BadCredentialsException("Current password is incorrect");
+        }
+
+        if (newPassword == null || newPassword.trim().length() < 8) {
+            throw new IllegalArgumentException("New password must be at least 8 characters long");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setMustChangePassword(false);
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+
+        return AuthResponse.builder()
+                .message("Password changed successfully")
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .role(user.getRole())
+                .trainerType(user.getTrainerType())
+                .mustChangePassword(false)
+                .build();
+    }
+
+    public String generateTemporaryPassword() {
+        return "Temp@" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
 }

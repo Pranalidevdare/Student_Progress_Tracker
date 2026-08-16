@@ -64,7 +64,8 @@ export const AuthProvider = ({ children }) => {
       role: data.role,
       trainerType: data.trainerType,
       batchId: data.batchId || meta?.batchId || 'BATCH001',
-      token: data.token
+      token: data.token,
+      mustChangePassword: Boolean(data.mustChangePassword)
     };
 
     setUser(userData);
@@ -79,10 +80,16 @@ export const AuthProvider = ({ children }) => {
       role: data.role,
       studentId: userData.id,
       trainerId: userData.id,
-      batchId: userData.batchId
+      batchId: userData.batchId,
+      mustChangePassword: userData.mustChangePassword
     }));
-    localStorage.setItem('trainerId', userData.id);
-    localStorage.setItem('batchId', userData.batchId);
+
+    if (userData.id) {
+      localStorage.setItem('trainerId', userData.id);
+    }
+    if (userData.batchId) {
+      localStorage.setItem('batchId', userData.batchId);
+    }
   };
 
   const logoutUser = () => {
