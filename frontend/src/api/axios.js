@@ -7,12 +7,37 @@ if (rawBaseUrl && !rawBaseUrl.endsWith('/api')) {
 
 const api = axios.create({
   baseURL: rawBaseUrl,
-  headers: { 'Content-Type': 'application/json' },
   timeout: 15000,
 });
 
-// Attach JWT on every request
+// Attach JWT on every request, normalize double /api prefixes, and handle JSON vs Multipart Content-Type
 api.interceptors.request.use((config) => {
+  // Normalize URL to prevent /api/api/... duplicate prefixes when baseURL already includes /api
+  if (config.url) {
+    if (config.url.startsWith('/api/')) {
+      config.url = config.url.substring(4);
+    } else if (config.url === '/api') {
+      config.url = '/';
+    } else if (config.url.startsWith('api/')) {
+      config.url = config.url.substring(3);
+    }
+  }
+
+  // Handle Content-Type dynamically:
+  // For FormData / multipart uploads, remove Content-Type header so browser/axios sets multipart/form-data with proper boundary.
+  // For standard JSON requests, set application/json.
+  if (config.data instanceof FormData) {
+    if (config.headers) {
+      delete config.headers['Content-Type'];
+      delete config.headers['content-type'];
+    }
+  } else {
+    config.headers = config.headers || {};
+    if (!config.headers['Content-Type'] && !config.headers['content-type']) {
+      config.headers['Content-Type'] = 'application/json';
+    }
+  }
+
   let token = localStorage.getItem('token');
   if (!token) {
     const authDataRaw = localStorage.getItem('spt_auth');
@@ -29,13 +54,23 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 globally
+// Handle 401 globally with safe path checking (don't redirect on login attempt failure or public pages)
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.clear();
-      window.location.href = '/login';
+      const isAuthEndpoint = err.config?.url?.includes('/auth/login') || err.config?.url?.includes('/auth/register');
+      const isPublicPage = window.location.pathname === '/login' ||
+                           window.location.pathname === '/' ||
+                           window.location.pathname === '/register' ||
+                           window.location.pathname === '/aptitude-test' ||
+                           window.location.pathname === '/documentation' ||
+                           window.location.pathname === '/selection-status';
+      if (!isAuthEndpoint && !isPublicPage) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('spt_auth');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(err);
   }

@@ -15,9 +15,7 @@ export const createAssessment = (data) =>
   api.post('/api/trainer/assessments', data);
 
 export const uploadAssessmentDocument = (formData) =>
-  api.post('/api/trainer/assessments/upload-document', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  });
+  api.post('/trainer/assessments/upload-document', formData);
 
 export const updateAssessment = (id, data) =>
   api.put(`/api/trainer/assessments/${id}`, data);

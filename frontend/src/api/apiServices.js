@@ -303,7 +303,7 @@ export const documentationApi = {
     ),
 
   getDocumentFileUrl: (applicationId, documentType) =>
-    `${api.defaults.baseURL || 'http://localhost:8080'}/api/documentations/application/${applicationId}/file/${documentType}`,
+    `/documentations/application/${applicationId}/file/${documentType}`,
 
   // =========================================================
   // GET ALL DOCUMENTATIONS

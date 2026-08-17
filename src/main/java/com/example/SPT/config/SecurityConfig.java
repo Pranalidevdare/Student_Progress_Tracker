@@ -178,9 +178,9 @@ public class SecurityConfig {
                 .hasAnyRole("TRAINER", "ADMIN")
 
                 // ==========================================
-                // STUDENT & MATERIALS APIs
+                // STUDENT & MATERIALS & FILE APIs
                 // ==========================================
-                .requestMatchers("/api/materials/**")
+                .requestMatchers("/api/materials/**", "/api/files/**")
                 .hasAnyRole("STUDENT", "TRAINER", "ADMIN")
 
                 .requestMatchers("/api/student/**", "/api/students/**")

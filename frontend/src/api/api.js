@@ -1,34 +1,4 @@
-import axios from 'axios';
-
-let rawBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
-if (rawBaseUrl && !rawBaseUrl.endsWith('/api')) {
-  rawBaseUrl = rawBaseUrl.endsWith('/') ? `${rawBaseUrl}api` : `${rawBaseUrl}/api`;
-}
-
-const api = axios.create({
-  baseURL: rawBaseUrl,
-  headers: { 'Content-Type': 'application/json' },
-});
-
-api.interceptors.request.use(
-  (config) => {
-    let token = localStorage.getItem('token');
-    if (!token) {
-      const authDataRaw = localStorage.getItem('spt_auth');
-      if (authDataRaw) {
-        try {
-          const authData = JSON.parse(authDataRaw);
-          token = authData?.token;
-        } catch (e) {}
-      }
-    }
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+import api from './axios';
 
 export const getAllStudents          = ()         => api.get('/students');
 export const getCurrentStudent        = ()         => api.get('/students/me');

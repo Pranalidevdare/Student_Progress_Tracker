@@ -83,7 +83,7 @@ export default function AdminDashboard() {
         getAllTrainers(),
         applicationApi.getAll(),
         adminApi.getDashboard(),
-        api.get('/api/trainer/attendance/batch').catch(() => ({ data: [] })),
+        api.get('/api/trainer/attendance/today').catch(() => ({ data: [] })),
         adminApi.getAllStudents(),
         api.get('/api/student/toppers'),
         api.get('/api/batches/active')

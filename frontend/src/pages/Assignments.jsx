@@ -165,6 +165,148 @@ export default function Assignments() {
     return <span className="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800 flex items-center gap-1 w-fit"><Clock size={12} /> Active / Pending</span>;
   };
 
+  const handleOpenCreateModal = () => {
+    setEditingId(null);
+    setFormData({
+      trainerId: trainerId,
+      batchId: batchId,
+      title: '',
+      description: '',
+      subject: '',
+      totalMarks: 100,
+      assignedDate: new Date().toISOString().split('T')[0],
+      dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+      attachmentUrl: '',
+      status: 'ACTIVE'
+    });
+    setTrainerModalOpen(true);
+  };
+
+  const handleOpenEditModal = (item) => {
+    setEditingId(item.id);
+    setFormData({
+      trainerId: item.trainerId || trainerId,
+      batchId: item.batchId || batchId,
+      title: item.title || '',
+      description: item.description || '',
+      subject: item.subject || '',
+      totalMarks: item.totalMarks || 100,
+      assignedDate: item.assignedDate || new Date().toISOString().split('T')[0],
+      dueDate: item.dueDate || new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+      attachmentUrl: item.attachmentUrl || '',
+      status: item.status || 'ACTIVE'
+    });
+    setTrainerModalOpen(true);
+  };
+
+  const handleTrainerSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.title.trim()) {
+      toast.error('Assignment title is required.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      if (editingId) {
+        await updateAssignment(editingId, formData);
+        toast.success('Assignment updated successfully!');
+      } else {
+        await createAssignment(formData);
+        toast.success('Assignment created successfully!');
+      }
+      setTrainerModalOpen(false);
+      fetchAssignments();
+    } catch (err) {
+      console.error('Failed to save assignment:', err);
+      toast.error(err.response?.data?.message || 'Failed to save assignment.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleTrainerDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this assignment?')) return;
+    try {
+      await deleteAssignment(id);
+      toast.success('Assignment deleted successfully!');
+      fetchAssignments();
+    } catch (err) {
+      console.error('Failed to delete assignment:', err);
+      toast.error('Failed to delete assignment.');
+    }
+  };
+
+  const handleTrainerFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAttachment(true);
+    try {
+      const res = await uploadFile(file);
+      if (res.data?.fileUrl) {
+        setFormData(prev => ({ ...prev, attachmentUrl: res.data.fileUrl }));
+        toast.success('File uploaded and attached successfully!');
+      }
+    } catch (err) {
+      console.error('Attachment upload failed:', err);
+      toast.error('File upload failed. Please check backend.');
+    } finally {
+      setUploadingAttachment(false);
+    }
+  };
+
+  const handleOpenViewModal = (item) => {
+    setSelectedAssignment(item);
+    setSelectedFile(null);
+    setFileError('');
+    setSubmissionRemarks('');
+    setViewModalOpen(true);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 25 * 1024 * 1024) {
+      setFileError('File size exceeds 25 MB limit.');
+      setSelectedFile(null);
+      return;
+    }
+    setFileError('');
+    setSelectedFile(file);
+  };
+
+  const handleStudentUploadSubmission = async (e) => {
+    e.preventDefault();
+    if (!selectedFile) {
+      toast.error('Please select a file to upload.');
+      return;
+    }
+    setUploading(true);
+    try {
+      const uploadRes = await uploadFile(selectedFile);
+      const fileUrl = uploadRes.data?.fileUrl || '';
+
+      await submitAssignment({
+        assignmentId: selectedAssignment.id,
+        studentId: studentId,
+        batchId: batchId,
+        fileUrl: fileUrl,
+        fileName: selectedFile.name,
+        remarks: submissionRemarks,
+        submissionDate: new Date().toISOString()
+      });
+
+      toast.success('Assignment submitted successfully!');
+      setViewModalOpen(false);
+      fetchAssignments();
+    } catch (err) {
+      console.error('Submission failed:', err);
+      toast.error(err.response?.data?.message || 'Failed to submit assignment.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+
   return (
     <div className="flex flex-col gap-6 font-sans">
       {/* Page Header */}
