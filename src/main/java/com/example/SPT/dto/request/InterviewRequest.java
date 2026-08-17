@@ -21,7 +21,6 @@ public class InterviewRequest {
     @NotBlank(message = "Trainer Id is required")
     private String trainerId;
 
-    @NotBlank(message = "Batch Id is required")
     private String batchId;
 
     @NotNull(message = "Interview Date is required")
@@ -39,8 +38,6 @@ public class InterviewRequest {
 
     private Integer behaviourMarks;
 
-
     private String remarks;
-
 
 }

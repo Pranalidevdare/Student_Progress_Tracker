@@ -5,7 +5,8 @@ import {
   markAttendance,
   updateAttendance
 } from '../api/attendanceApi';
-import { CalendarCheck, Plus, CheckCircle2, XCircle, Clock, AlertCircle, X, Check, ShieldCheck, Lock, User } from 'lucide-react';
+import api from '../api/axios';
+import { CalendarCheck, Plus, CheckCircle2, XCircle, Clock, AlertCircle, X, Check, ShieldCheck, Lock, User, RefreshCw, ShieldAlert } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Attendance() {
@@ -13,129 +14,110 @@ export default function Attendance() {
   const roleStr = String(user?.role || '').toUpperCase();
   const isStudent = roleStr.includes('STUDENT');
   
-  const studentId = user?.id || user?.studentId || user?.applicationNumber || 'STU7076';
-  const studentName = isStudent ? (user?.fullName || 'Pranali Devdare') : 'Jyoti Satkar';
-  const trainerId = user?.id || localStorage.getItem('trainerId') || '650123456789abcdef012345';
-  const defaultBatchId = user?.batchId || localStorage.getItem('batchId') || null;
+  const studentId = user?.id || user?.studentId || user?.email || '';
+  const studentName = user?.fullName || 'Student';
+  const trainerId = user?.id || user?.trainerId || localStorage.getItem('trainerId') || '';
+  const defaultBatchId = user?.batchId || user?.batch || localStorage.getItem('batchId') || '';
 
   const [batchId, setBatchId] = useState(defaultBatchId);
+  const [batches, setBatches] = useState([]);
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
-
-  // Active Student Master Roster
-  const studentList = [
-    { id: 'APP20268482', name: 'Jyoti Satkar', branch: 'Computer Engg' },
-    { id: 'STU7076', name: 'Pranali Devdare', branch: 'InfoBeans Scholar' },
-    { id: 'APP7076', name: 'Rahul Sharma', branch: 'Computer Engg' },
-    { id: 'APP2026001', name: 'Siddharth Varma', branch: 'Computer Science' },
-    { id: 'APP2026002', name: 'Neha Kulkarni', branch: 'Information Tech' },
-    { id: 'APP2026003', name: 'Rohan Mehta', branch: 'Computer Science' },
-    { id: 'STU7078', name: 'Aarti Verma', branch: 'Data Science' }
-  ];
-
-  // Helper map for Student Names
-  const studentNameMap = {
-    'APP20268482': 'Jyoti Satkar',
-    'APP2026001': 'Siddharth Varma',
-    'STU7076': 'Pranali Devdare',
-    'APP7076': 'Rahul Sharma',
-    'STU7077': 'Rahul Sharma',
-    'APP2026002': 'Neha Kulkarni',
-    'APP2026003': 'Rohan Mehta',
-    'STU7078': 'Aarti Verma'
-  };
-
-  const getResolvedStudentName = (id, fallbackName) => {
-    if (fallbackName && fallbackName !== 'Default Trainer' && fallbackName !== user?.fullName && fallbackName !== 'Student Candidate') {
-      return fallbackName;
-    }
-    if (studentNameMap[id]) return studentNameMap[id];
-    return fallbackName || `Student Candidate (${id || 'STU'})`;
-  };
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [enrolledStudents, setEnrolledStudents] = useState([]);
 
   // Modal State for Trainers/Admins only
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    studentId: 'APP20268482',
-    studentName: 'Jyoti Satkar',
+    studentId: '',
+    studentName: '',
     trainerId: trainerId,
     batchId: defaultBatchId,
     attendanceDate: new Date().toISOString().split('T')[0],
+    sessionType: 'TECHNICAL',
     status: 'PRESENT',
     remarks: 'Class attendance recorded'
   });
+
+  useEffect(() => {
+    // Load active batches and enrolled students for faculty/admin
+    if (!isStudent) {
+      api.get('/batches/active')
+        .then(res => {
+          if (Array.isArray(res.data) && res.data.length > 0) {
+            setBatches(res.data);
+            if (!batchId) {
+              setBatchId(res.data[0].id || res.data[0].batchName || '');
+            }
+          }
+        })
+        .catch(() => {});
+
+      api.get('/students')
+        .then(res => {
+          if (Array.isArray(res.data)) {
+            setEnrolledStudents(res.data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isStudent]);
 
   useEffect(() => {
     fetchAttendance();
   }, [batchId]);
 
   const fetchAttendance = async () => {
-    if (!batchId) return;
+    if (!batchId && !isStudent) {
+      setRecords([]);
+      return;
+    }
     setLoading(true);
-    let loaded = false;
+    setHasError(false);
+    setErrorMessage('');
     try {
-      const res = await getAttendanceByBatch(batchId);
-      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+      const activeBatch = batchId || defaultBatchId || 'BATCH001';
+      const res = await getAttendanceByBatch(activeBatch);
+      if (res && res.data && Array.isArray(res.data)) {
         setRecords(res.data);
-        loaded = true;
+      } else {
+        setRecords([]);
       }
     } catch (err) {
-      console.log('Loaded fallback attendance logs');
-    }
-
-    if (!loaded) {
-      const localData = localStorage.getItem(`spt_attendance_${batchId}`);
-      if (localData) {
-        const parsed = JSON.parse(localData);
-        if (parsed.length >= 3) {
-          setRecords(parsed);
-          loaded = true;
-        }
+      console.error('Failed to fetch attendance:', err);
+      if (err.response?.status === 404) {
+        setRecords([]);
+      } else {
+        setHasError(true);
+        setErrorMessage(
+          err.response?.data?.message ||
+          (err.code === 'ERR_NETWORK' || err.message?.includes('Network')
+            ? 'Backend server is unavailable. Please check if Spring Boot is running.'
+            : 'Unable to load attendance records.')
+        );
       }
-    }
-
-    if (!loaded) {
-      const defaultItems = [
-        { id: 'att1', attendanceDate: '2026-08-12', studentId: 'APP20268482', studentName: 'Jyoti Satkar', trainerName: user?.fullName || 'Omkar Patankar Sir', status: 'PRESENT', remarks: 'Present in Spring Boot Lecture' },
-        { id: 'att2', attendanceDate: '2026-08-12', studentId: 'APP2026001', studentName: 'Siddharth Varma', trainerName: user?.fullName || 'Omkar Patankar Sir', status: 'PRESENT', remarks: 'Class attendance recorded' },
-        { id: 'att3', attendanceDate: '2026-08-11', studentId: 'STU7076', studentName: 'Pranali Devdare', trainerName: 'Dr. Neha Bhopatkar', status: 'PRESENT', remarks: 'Participated in Soft Skills Workshop' },
-        { id: 'att4', attendanceDate: '2026-08-10', studentId: 'APP7076', studentName: 'Rahul Sharma', trainerName: 'Omkar Patankar Sir', status: 'PRESENT', remarks: 'Completed React Lab on time' },
-        { id: 'att5', attendanceDate: '2026-08-09', studentId: 'APP2026002', studentName: 'Neha Kulkarni', trainerName: 'Omkar Patankar Sir', status: 'LATE', remarks: 'Joined 10 mins late' }
-      ];
-      setRecords(defaultItems);
-      localStorage.setItem(`spt_attendance_${batchId}`, JSON.stringify(defaultItems));
-    }
-    setLoading(false);
-  };
-
-  const handleStudentSelectChange = (e) => {
-    const selectedId = e.target.value;
-    const found = studentList.find(s => s.id === selectedId);
-    if (found) {
-      setFormData(prev => ({
-        ...prev,
-        studentId: found.id,
-        studentName: found.name
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        studentId: selectedId,
-        studentName: e.target.value
-      }));
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleOpenMarkModal = () => {
     setEditingId(null);
+    const firstStudent = enrolledStudents[0];
+    const sId = firstStudent?.id || firstStudent?.studentId || '';
+    const sName = firstStudent ? `${firstStudent.firstName || ''} ${firstStudent.lastName || ''}`.trim() || firstStudent.email : '';
+    const sBatch = firstStudent?.batchId || batchId || defaultBatchId || '';
+
     setFormData({
-      studentId: 'APP20268482',
-      studentName: 'Jyoti Satkar',
-      trainerId,
-      batchId,
+      studentId: sId,
+      studentName: sName,
+      trainerId: trainerId || user?.id || '',
+      batchId: sBatch,
       attendanceDate: new Date().toISOString().split('T')[0],
+      sessionType: user?.trainerType === 'SOFT_SKILLS' ? 'SOFT_SKILL' : 'TECHNICAL',
       status: 'PRESENT',
       remarks: 'Class attendance recorded'
     });
@@ -145,11 +127,12 @@ export default function Attendance() {
   const handleOpenEditModal = (item) => {
     setEditingId(item.id);
     setFormData({
-      studentId: item.studentId || 'APP20268482',
-      studentName: item.studentName || getResolvedStudentName(item.studentId),
+      studentId: item.studentId || '',
+      studentName: item.studentName || '',
       trainerId: item.trainerId || trainerId,
       batchId: item.batchId || batchId,
       attendanceDate: item.attendanceDate || new Date().toISOString().split('T')[0],
+      sessionType: item.sessionType || 'TECHNICAL',
       status: item.status || 'PRESENT',
       remarks: item.remarks || ''
     });
@@ -158,47 +141,44 @@ export default function Attendance() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.studentName.trim()) {
-      toast.error('Please select or enter Student Name.');
+    if (!formData.studentId) {
+      toast.error('Please select a student from the list');
       return;
     }
+    if (!formData.attendanceDate) {
+      toast.error('Please select a valid attendance date');
+      return;
+    }
+
     setSubmitting(true);
 
-    const sName = formData.studentName.trim();
-    const sId = formData.studentId || `STU_${Date.now()}`;
-
     const payload = {
-      studentId: sId,
-      studentName: sName,
-      trainerId: formData.trainerId || trainerId,
-      trainerName: user?.fullName || 'Omkar Patankar Sir',
-      batchId: formData.batchId || batchId,
-      attendanceDate: formData.attendanceDate || new Date().toISOString().split('T')[0],
+      studentId: formData.studentId,
+      trainerId: formData.trainerId || trainerId || 'TRN001',
+      batchId: formData.batchId || batchId || defaultBatchId || 'BATCH001',
+      attendanceDate: formData.attendanceDate,
+      sessionType: formData.sessionType || 'TECHNICAL',
       status: formData.status || 'PRESENT',
-      remarks: formData.remarks.trim() || 'Class attendance recorded'
+      remarks: formData.remarks?.trim() || 'Class attendance recorded'
     };
 
     try {
       if (editingId) {
         await updateAttendance(editingId, payload);
+        toast.success('Attendance updated successfully');
       } else {
         await markAttendance(payload);
+        toast.success(`Attendance marked for ${formData.studentName || 'student'}`);
       }
-    } catch (err) {}
-
-    let currentList = [...records];
-    if (editingId) {
-      currentList = currentList.map(item => item.id === editingId ? { ...item, ...payload } : item);
-    } else {
-      const newItem = { id: `att_${Date.now()}`, ...payload };
-      currentList.unshift(newItem);
+      setModalOpen(false);
+      await fetchAttendance();
+    } catch (err) {
+      console.error('Failed to save attendance:', err);
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Failed to save attendance record';
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
     }
-    setRecords(currentList);
-    localStorage.setItem(`spt_attendance_${batchId}`, JSON.stringify(currentList));
-
-    toast.success(editingId ? 'Attendance updated!' : `Attendance marked for ${sName}! 🎉`);
-    setModalOpen(false);
-    setSubmitting(false);
   };
 
   const getStatusBadge = (status) => {
@@ -212,15 +192,15 @@ export default function Attendance() {
       case 'LEAVE':
         return <span className="badge-blue flex items-center gap-1"><AlertCircle size={12} /> Leave</span>;
       default:
-        return <span className="badge-gray">{status}</span>;
+        return <span className="badge-gray">{status || 'N/A'}</span>;
     }
   };
 
   // Filter records: Students see ONLY their own attendance records
   const displayRecords = isStudent
     ? records.filter(r => 
-        (r.studentId && r.studentId.toLowerCase() === studentId.toLowerCase()) ||
-        (r.studentName && r.studentName.toLowerCase() === studentName.toLowerCase())
+        (r.studentId && studentId && r.studentId.toLowerCase() === studentId.toLowerCase()) ||
+        (r.studentName && studentName && r.studentName.toLowerCase() === studentName.toLowerCase())
       )
     : records;
 
@@ -229,11 +209,11 @@ export default function Attendance() {
   const presentDays = displayRecords.filter(r => r.status === 'PRESENT').length;
   const lateDays = displayRecords.filter(r => r.status === 'LATE').length;
   const absentDays = displayRecords.filter(r => r.status === 'ABSENT').length;
-  const attendancePct = totalDays > 0 ? Math.round(((presentDays + lateDays) / totalDays) * 100) : 95;
+  const attendancePct = totalDays > 0 ? Math.round(((presentDays + lateDays) / totalDays) * 100) : 0;
 
   return (
     <div className="flex flex-col gap-6 font-sans">
-      <div className="page-header">
+      <div className="page-header flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="page-title">{isStudent ? 'My Personal Attendance Record' : 'Daily Attendance Tracker'}</h1>
           <p className="page-subtitle">
@@ -249,7 +229,7 @@ export default function Attendance() {
         ) : (
           <button onClick={handleOpenMarkModal} className="btn-primary shadow-md shadow-red-200 font-bold">
             <Plus size={18} />
-            <span>Mark Attendance</span>
+            <span>Record Attendance</span>
           </button>
         )}
       </div>
@@ -267,17 +247,17 @@ export default function Attendance() {
 
           <div className="card p-4 border-emerald-100 bg-emerald-50/50 flex flex-col justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Days Present</span>
-            <span className="text-2xl font-black text-emerald-700 mt-1">{presentDays || 4} Days</span>
+            <span className="text-2xl font-black text-emerald-700 mt-1">{presentDays} Days</span>
           </div>
 
           <div className="card p-4 border-amber-100 bg-amber-50/50 flex flex-col justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800">Days Late</span>
-            <span className="text-2xl font-black text-amber-700 mt-1">{lateDays || 1} Day</span>
+            <span className="text-2xl font-black text-amber-700 mt-1">{lateDays} Days</span>
           </div>
 
           <div className="card p-4 border-red-100 bg-red-50/50 flex flex-col justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-red-800">Days Absent</span>
-            <span className="text-2xl font-black text-red-700 mt-1">{absentDays || 0} Days</span>
+            <span className="text-2xl font-black text-red-700 mt-1">{absentDays} Days</span>
           </div>
         </div>
       )}
@@ -296,184 +276,184 @@ export default function Attendance() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-500">Batch ID:</span>
-          {isStudent ? (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100/90 border border-gray-200 rounded-xl text-xs select-none">
-              <span className="font-mono font-bold text-red-700">{batchId}</span>
-              <span className="text-[10px] text-gray-500 font-extrabold uppercase bg-gray-200/70 px-1.5 py-0.5 rounded tracking-wider">READ ONLY</span>
-            </div>
-          ) : (
-            <input
-              type="text"
+        {!isStudent && batches.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-gray-500">Batch:</span>
+            <select
               value={batchId}
               onChange={(e) => setBatchId(e.target.value)}
-              placeholder="Batch ID..."
-              className="form-input text-xs font-mono font-bold text-red-700 bg-red-50/50 border-red-200 w-36"
-            />
-          )}
-        </div>
+              className="form-input py-1 text-xs font-mono font-bold"
+            >
+              {batches.map(b => (
+                <option key={b.id || b.batchName} value={b.id || b.batchName}>
+                  {b.batchName || b.id}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
-      {/* Table */}
-      <div className="card overflow-hidden">
-        <div className="table-wrapper">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Student ID</th>
-                <th>Student Name</th>
-                <th>Trainer / Faculty</th>
-                <th>Status</th>
-                <th>Remarks</th>
-                {!isStudent && <th className="text-right">Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={isStudent ? "6" : "7"} className="text-center py-12">
-                    <div className="spinner w-8 h-8 border-red-600 mx-auto" />
-                  </td>
+      {/* Attendance Table / Content */}
+      {loading ? (
+        <div className="card p-16 text-center">
+          <div className="spinner w-8 h-8 border-red-600 mx-auto" />
+          <p className="text-xs text-gray-400 mt-3 font-semibold">Loading attendance logs...</p>
+        </div>
+      ) : hasError ? (
+        <div className="card p-12 text-center bg-red-50/40 border border-red-200 space-y-3">
+          <ShieldAlert size={24} className="text-red-600 mx-auto" />
+          <h3 className="text-sm font-bold text-red-900">Unable to load attendance records</h3>
+          <p className="text-xs text-red-700">{errorMessage || 'Please check server connection and try again.'}</p>
+          <button onClick={fetchAttendance} className="btn bg-red-600 text-white text-xs font-bold px-4 py-2 mx-auto flex items-center gap-1.5 shadow">
+            <RefreshCw size={13} />
+            <span>Retry</span>
+          </button>
+        </div>
+      ) : displayRecords.length > 0 ? (
+        <div className="card p-0 overflow-hidden">
+          <div className="table-wrapper">
+            <table className="table w-full text-left">
+              <thead>
+                <tr className="bg-gray-50 text-[11px] font-extrabold uppercase text-gray-500 tracking-wider">
+                  <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4">Student ID</th>
+                  <th className="py-3 px-4">Student Name</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Remarks</th>
+                  {!isStudent && <th className="py-3 px-4 text-right">Actions</th>}
                 </tr>
-              ) : displayRecords.length > 0 ? (
-                displayRecords.map((item) => (
-                  <tr key={item.id}>
-                    <td className="font-semibold text-gray-800 text-xs">{item.attendanceDate}</td>
-                    <td className="font-mono text-xs font-bold text-gray-700">{item.studentId}</td>
-                    <td className="font-bold text-gray-900">{getResolvedStudentName(item.studentId, item.studentName)}</td>
-                    <td className="text-xs text-gray-500 font-medium">{item.trainerName || user?.fullName || 'Omkar Patankar Sir'}</td>
-                    <td>{getStatusBadge(item.status)}</td>
-                    <td className="text-xs text-gray-500 italic">{item.remarks || '-'}</td>
+              </thead>
+              <tbody className="divide-y divide-gray-100 text-xs">
+                {displayRecords.map((item, idx) => (
+                  <tr key={item.id || idx} className="hover:bg-gray-50/80 transition-colors">
+                    <td className="py-3 px-4 font-mono text-gray-700">{item.attendanceDate || 'N/A'}</td>
+                    <td className="py-3 px-4 font-mono font-bold text-gray-800">{item.studentId || 'N/A'}</td>
+                    <td className="py-3 px-4 font-bold text-gray-900">{item.studentName || 'Student'}</td>
+                    <td className="py-3 px-4">{getStatusBadge(item.status)}</td>
+                    <td className="py-3 px-4 text-gray-500">{item.remarks || '—'}</td>
                     {!isStudent && (
-                      <td className="text-right">
+                      <td className="py-3 px-4 text-right">
                         <button
                           onClick={() => handleOpenEditModal(item)}
-                          className="btn-outline btn-sm font-semibold"
+                          className="text-xs text-red-600 font-bold hover:underline"
                         >
                           Edit
                         </button>
                       </td>
                     )}
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={isStudent ? "6" : "7"}>
-                    <div className="empty-state">
-                      <div className="empty-icon"><CalendarCheck size={32} /></div>
-                      <h4 className="text-sm font-bold text-gray-700">No Attendance Logged</h4>
-                      <p className="text-xs text-gray-400 max-w-sm">
-                        {isStudent ? 'No attendance records logged for your account by faculty yet.' : `No attendance records found for Batch '${batchId}'. Click "Mark Attendance" to add an entry.`}
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="card p-12 text-center bg-gray-50/50 border border-dashed border-gray-200 space-y-3">
+          <CalendarCheck size={28} className="text-gray-400 mx-auto" />
+          <h3 className="text-base font-bold text-gray-900">No Attendance Records Found</h3>
+          <p className="text-xs text-gray-500 max-w-sm mx-auto">
+            {isStudent
+              ? 'No attendance has been logged for your account in this batch yet.'
+              : 'No attendance records recorded for this batch. Click "Record Attendance" to create entries.'}
+          </p>
+        </div>
+      )}
 
-      {/* Modal for Trainers/Admins ONLY */}
-      {modalOpen && !isStudent && (
-        <div className="modal-backdrop">
-          <div className="modal">
+      {/* Modal for Mark / Edit Attendance */}
+      {modalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-container max-w-md">
             <div className="modal-header">
-              <h3 className="text-base font-bold text-gray-800">
-                {editingId ? 'Edit Attendance Record' : 'Mark Student Attendance'}
+              <h3 className="text-sm font-bold text-gray-900">
+                {editingId ? 'Edit Attendance Entry' : 'Record Daily Attendance'}
               </h3>
               <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
-
-            <form onSubmit={handleSubmit}>
-              <div className="modal-body flex flex-col gap-4">
-                <div className="form-group">
-                  <label className="form-label font-bold text-gray-800 flex items-center justify-between">
-                    <span>Select Student Name *</span>
-                    <span className="text-[11px] text-gray-400 font-normal">Active Batch Roster</span>
-                  </label>
-                  
+            <form onSubmit={handleSubmit} className="p-5 space-y-4">
+              <div className="form-group">
+                <label className="form-label">Select Student</label>
+                {enrolledStudents.length > 0 ? (
                   <select
                     value={formData.studentId}
-                    onChange={handleStudentSelectChange}
-                    className="form-select font-bold text-gray-900"
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      const selected = enrolledStudents.find(
+                        s => s.id === selectedId || s.studentId === selectedId
+                      );
+                      setFormData(prev => ({
+                        ...prev,
+                        studentId: selectedId,
+                        studentName: selected ? `${selected.firstName || ''} ${selected.lastName || ''}`.trim() || selected.email : prev.studentName,
+                        batchId: selected?.batchId || prev.batchId
+                      }));
+                    }}
+                    className="form-input"
+                    required
                   >
-                    {studentList.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.id}) — {s.branch}
-                      </option>
-                    ))}
+                    <option value="">Select Student...</option>
+                    {enrolledStudents.map((s, idx) => {
+                      const name = `${s.firstName || ''} ${s.lastName || ''}`.trim() || s.email || `Student ${idx + 1}`;
+                      const idLabel = s.studentId ? ` (${s.studentId})` : ` (${s.id?.substring(0, 8)}...)`;
+                      return <option key={s.id || idx} value={s.id || s.studentId}>{name}{idLabel}</option>;
+                    })}
                   </select>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Selected Student Name</label>
-                  <div className="flex items-center gap-2 p-2.5 bg-red-50/60 rounded-xl border border-red-100">
-                    <User size={16} className="text-red-600" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="Enter student name"
-                      value={formData.studentName}
-                      onChange={(e) => setFormData({ ...formData, studentName: e.target.value })}
-                      className="form-input text-xs font-bold text-red-900 bg-transparent border-0 p-0"
-                    />
-                    <span className="text-[11px] font-mono font-bold text-red-700 bg-white px-2 py-0.5 rounded border border-red-200 ml-auto">
-                      ID: {formData.studentId}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="form-group">
-                    <label className="form-label">Attendance Date</label>
-                    <input
-                      type="date"
-                      required
-                      value={formData.attendanceDate}
-                      onChange={(e) => setFormData({ ...formData, attendanceDate: e.target.value })}
-                      className="form-input"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Status</label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      className="form-select"
-                    >
-                      <option value="PRESENT">PRESENT</option>
-                      <option value="ABSENT">ABSENT</option>
-                      <option value="LATE">LATE</option>
-                      <option value="LEAVE">LEAVE</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Remarks (Optional)</label>
+                ) : (
                   <input
                     type="text"
-                    placeholder="e.g. Class attendance recorded"
-                    value={formData.remarks}
-                    onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                    required
+                    value={formData.studentId}
+                    onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
+                    placeholder="Enter Student ID or Email"
                     className="form-input"
                   />
-                </div>
+                )}
               </div>
 
-              <div className="modal-footer">
-                <button type="button" onClick={() => setModalOpen(false)} className="btn-outline">
+              <div className="form-group">
+                <label className="form-label">Attendance Date</label>
+                <input
+                  type="date"
+                  required
+                  value={formData.attendanceDate}
+                  onChange={(e) => setFormData({ ...formData, attendanceDate: e.target.value })}
+                  className="form-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Status</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  className="form-input font-bold"
+                >
+                  <option value="PRESENT">PRESENT</option>
+                  <option value="LATE">LATE</option>
+                  <option value="ABSENT">ABSENT</option>
+                  <option value="LEAVE">LEAVE</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Remarks</label>
+                <input
+                  type="text"
+                  value={formData.remarks}
+                  onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                  placeholder="Optional remarks"
+                  className="form-input"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+                <button type="button" onClick={() => setModalOpen(false)} className="btn bg-gray-100 text-gray-700">
                   Cancel
                 </button>
-                <button type="submit" disabled={submitting} className="btn-primary font-bold">
-                  {submitting ? <div className="spinner border-white border-t-transparent w-4 h-4" /> : <Check size={16} />}
-                  <span>{editingId ? 'Update Record' : 'Save Attendance'}</span>
+                <button type="submit" disabled={submitting} className="btn-primary">
+                  {submitting ? 'Recording...' : editingId ? 'Update Record' : 'Record Attendance'}
                 </button>
               </div>
             </form>

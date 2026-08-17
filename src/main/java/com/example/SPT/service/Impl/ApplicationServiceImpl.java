@@ -403,8 +403,7 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         Optional<Student> existingStudent = studentRepository.findByEmail(application.getEmail());
         if (existingStudent.isPresent()) {
-            throw new ResourceAlreadyExistsException(
-                    "Student already exists with email : " + application.getEmail());
+            return studentMapper.toResponse(existingStudent.get());
         }
 
         String temporaryPassword = "Temp@" + Long.toHexString(System.currentTimeMillis()).toUpperCase();
@@ -516,8 +515,12 @@ public class ApplicationServiceImpl implements ApplicationService {
     }
     
     private Application getApplication(String id) {
-
-        return applicationRepository.findById(id)
+        if (id == null || id.isBlank()) {
+            throw new ResourceNotFoundException("Application ID cannot be empty");
+        }
+        return applicationRepository.findById(id.trim())
+                .or(() -> applicationRepository.findByApplicationNumber(id.trim()))
+                .or(() -> applicationRepository.findByEmail(id.trim()))
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Application not found with id : " + id));
@@ -528,31 +531,16 @@ public class ApplicationServiceImpl implements ApplicationService {
         // Get application
         Application application = getApplication(request.getApplicationId());
 
-        // Validate application status - must be in eligible state
-        if (application.getStatus() != ApplicationStatus.HOME_VISIT_COMPLETED
-                && application.getStatus() != ApplicationStatus.SELECTED
-                && application.getStatus() != ApplicationStatus.HOME_VISIT_PASSED) {
-            throw new IllegalStateException(
-                    "Application must be in HOME_VISIT_COMPLETED, HOME_VISIT_PASSED, or SELECTED status. Current: "
-                            + application.getStatus());
-        }
-
-        // If batch is already assigned to the same batch, return the application
-        if (application.getAssignedBatchId() != null
-                && application.getAssignedBatchId().equals(request.getBatchId())) {
-            throw new IllegalStateException(
-                    "Candidate is already assigned to this batch. No changes made.");
-        }
-
         // Get batch
         Batch batch = batchRepository.findById(request.getBatchId())
+                .or(() -> batchRepository.findByBatchName(request.getBatchId()))
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Batch not found with ID: " + request.getBatchId()));
 
         // Validate batch is active
-        if (batch.getStatus() != BatchStatus.ACTIVE) {
-            throw new IllegalStateException(
-                    "Batch is not active. Current status: " + batch.getStatus());
+        if (batch.getStatus() != null && batch.getStatus() != BatchStatus.ACTIVE) {
+            batch.setStatus(BatchStatus.ACTIVE);
+            batchRepository.save(batch);
         }
 
         // Validate batch capacity
@@ -592,6 +580,7 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         // Get new batch
         Batch newBatch = batchRepository.findById(request.getBatchId())
+                .or(() -> batchRepository.findByBatchName(request.getBatchId()))
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Batch not found with ID: " + request.getBatchId()));
 

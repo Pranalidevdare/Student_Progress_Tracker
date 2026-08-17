@@ -66,9 +66,17 @@ public class AttendanceServiceImpl implements AttendanceService {
         }
 
         Trainer trainer = getAuthenticatedTrainer(trainerEmail);
-        String studentId = request.getStudentId();
+        String rawStudentId = request.getStudentId();
+        if (rawStudentId == null || rawStudentId.isBlank()) {
+            throw new IllegalArgumentException("Student ID is required.");
+        }
+        final String studentId = rawStudentId.trim();
+
         Student student = studentRepository.findById(studentId)
-                .orElseGet(() -> studentRepository.findByEmail(studentId).orElse(null));
+                .or(() -> studentRepository.findAllByStudentId(studentId).stream().findFirst())
+                .or(() -> studentRepository.findAllByEmail(studentId).stream().findFirst())
+                .or(() -> studentRepository.findAllByMobile(studentId).stream().findFirst())
+                .orElse(null);
 
         if (student == null) {
             throw new ResourceNotFoundException("Student not found with id: " + studentId);
@@ -91,7 +99,11 @@ public class AttendanceServiceImpl implements AttendanceService {
 
         // Upsert / Duplicate Check: Check existing Student + Date + SessionType
         Optional<Attendance> existingOpt = attendanceRepository
-                .findByStudentIdAndAttendanceDateAndSessionType(studentId, reqDate, allowedSession);
+                .findByStudentIdAndAttendanceDateAndSessionType(student.getId(), reqDate, allowedSession);
+        if (existingOpt.isEmpty() && student.getStudentId() != null) {
+            existingOpt = attendanceRepository
+                    .findByStudentIdAndAttendanceDateAndSessionType(student.getStudentId(), reqDate, allowedSession);
+        }
 
         Attendance attendance;
         if (existingOpt.isPresent()) {
@@ -175,8 +187,16 @@ public class AttendanceServiceImpl implements AttendanceService {
         if (batchId == null || batchId.isBlank()) {
             return Collections.emptyList();
         }
-        return attendanceRepository.findByBatchId(batchId)
-                .stream()
+        final String rawBatchId = batchId.trim();
+        Optional<Batch> batchOpt = batchRepository.findById(rawBatchId)
+                .or(() -> batchRepository.findByBatchName(rawBatchId));
+        String targetBatchId = batchOpt.isPresent() ? batchOpt.get().getId() : rawBatchId;
+
+        List<Attendance> records = attendanceRepository.findByBatchId(targetBatchId);
+        if (records.isEmpty() && !targetBatchId.equals(rawBatchId)) {
+            records = attendanceRepository.findByBatchId(rawBatchId);
+        }
+        return records.stream()
                 .map(attendanceMapper::toResponse)
                 .collect(Collectors.toList());
     }

@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { conductInterview } from '../api/interviewApi';
 import { applicationApi } from '../api/apiServices';
-import { Award, Search, CheckCircle2, Star, User, AlertCircle, Save, Check, X, Filter, RefreshCw, UserCheck } from 'lucide-react';
+import { Award, Search, CheckCircle2, Star, User, AlertCircle, Save, Check, X, Filter, RefreshCw, UserCheck, ShieldAlert } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Interviews() {
   const { user } = useAuth();
-  const trainerId = user?.id || localStorage.getItem('trainerId') || '650123456789abcdef012345';
-  const defaultBatchId = user?.batchId || localStorage.getItem('batchId') || null;
+  const trainerId = user?.id || user?.email || localStorage.getItem('trainerId') || '';
+  const defaultBatchId = user?.batchId || user?.batch || localStorage.getItem('batchId') || null;
   
   // Trainer Role Type: 'TECHNICAL' or 'SOFT_SKILLS'
   const isSoftSkillTrainer = user?.trainerType === 'SOFT_SKILLS' || user?.role?.includes('HR');
@@ -17,6 +17,7 @@ export default function Interviews() {
   const [eligibleCandidates, setEligibleCandidates] = useState([]);
   const [allCandidates, setAllCandidates] = useState([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [manualSearchId, setManualSearchId] = useState('');
 
@@ -26,12 +27,12 @@ export default function Interviews() {
     trainerId: trainerId,
     batchId: defaultBatchId,
     interviewDate: new Date().toISOString().split('T')[0],
-    interviewType: isSoftSkillTrainer ? 'HR' : 'TECHNICAL',
-    technicalMarks: 85,
-    softSkillMarks: 80,
-    communicationMarks: 85,
-    problemSolvingMarks: 88,
-    behaviourMarks: 90,
+    interviewType: isSoftSkillTrainer ? 'SOFT_SKILL' : 'TECHNICAL',
+    technicalMarks: 35, // max 40
+    problemSolvingMarks: 18, // max 20
+    softSkillMarks: 18, // max 20
+    communicationMarks: 18, // max 20
+    behaviourMarks: 18, // max 20
     remarks: '',
     passStatus: 'PASS'
   });
@@ -49,52 +50,29 @@ export default function Interviews() {
 
   const fetchEligibleQueue = async () => {
     setLoadingCandidates(true);
-    let remoteApps = [];
+    setHasError(false);
     try {
       const res = await applicationApi.getAll();
-      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-        remoteApps = res.data;
-      }
+      const apps = Array.isArray(res.data) ? res.data : [];
+      setAllCandidates(apps);
+
+      // Filter candidates ready for this interview stage
+      const targetFiltered = apps.filter(a =>
+        a.status === requiredTargetStatus ||
+        a.status === 'DOCUMENTS_VERIFIED' ||
+        a.status === 'DOCUMENTS_SUBMITTED' ||
+        (isSoftSkillTrainer ? a.status === 'TECHNICAL_INTERVIEW_PASSED' : false)
+      );
+
+      setEligibleCandidates(targetFiltered.length > 0 ? targetFiltered : apps);
     } catch (err) {
-      console.log('Loading interview queue fallback');
+      console.error('Failed to load interview queue:', err);
+      setHasError(true);
+      setAllCandidates([]);
+      setEligibleCandidates([]);
+    } finally {
+      setLoadingCandidates(false);
     }
-
-    // Merge with local applications stored during student registration
-    let localApps = [];
-    try {
-      const rawLocal = localStorage.getItem('spt_registered_applications');
-      if (rawLocal) localApps = JSON.parse(rawLocal);
-    } catch (e) {}
-
-    // Default mock candidate pool
-    const defaultPool = [
-      { id: 'app_jyoti', applicationNumber: 'APP20268482', fullName: 'Jyoti Satkar', email: 'dattatraysatkar3@gmail.com', mobile: '8482860447', status: 'DOCUMENTS_VERIFIED', collegeName: 'ISBM COE' },
-      { id: 'app_4', applicationNumber: 'APP7076', fullName: 'Rahul Sharma', email: 'rahul.sharma@example.com', mobile: '9876543210', status: 'DOCUMENTS_VERIFIED', collegeName: 'ISBM COE' },
-      { id: 'app_1', applicationNumber: 'APP2026001', fullName: 'Siddharth Varma', email: 'siddharth.varma@example.com', mobile: '9123456780', status: 'DOCUMENTS_SUBMITTED', collegeName: 'COEP Pune' }
-    ];
-
-    // Priority Order: remoteApps (1st), localApps (2nd), defaultPool (3rd)
-    const mergedMap = new Map();
-    [...remoteApps, ...localApps, ...defaultPool].forEach(a => {
-      const key = (a.applicationNumber || a.email || a.id || '').toString().toLowerCase();
-      if (key && !mergedMap.has(key)) {
-        mergedMap.set(key, a);
-      }
-    });
-
-    const combinedApps = Array.from(mergedMap.values());
-    setAllCandidates(combinedApps);
-
-    // Filter candidates matching target status or show all active candidates if queue is small
-    const targetFiltered = combinedApps.filter(a =>
-      a.status === requiredTargetStatus ||
-      a.status === 'DOCUMENTS_VERIFIED' ||
-      a.status === 'DOCUMENTS_SUBMITTED' ||
-      (isSoftSkillTrainer ? a.status === 'TECHNICAL_INTERVIEW_PASSED' : false)
-    );
-
-    setEligibleCandidates(targetFiltered.length > 0 ? targetFiltered : combinedApps);
-    setLoadingCandidates(false);
   };
 
   const handleSelectCandidate = (cand) => {
@@ -102,6 +80,7 @@ export default function Interviews() {
     setFormData(prev => ({
       ...prev,
       studentId: cand.applicationNumber || cand.id,
+      batchId: cand.assignedBatchId || defaultBatchId,
       remarks: `Interview evaluation for ${cand.fullName}`
     }));
     toast.success(`Selected candidate: ${cand.fullName}`);
@@ -125,14 +104,7 @@ export default function Interviews() {
     if (found) {
       handleSelectCandidate(found);
     } else {
-      const createdCandidate = {
-        id: query.toUpperCase(),
-        applicationNumber: query.toUpperCase(),
-        fullName: `Candidate (${query.toUpperCase()})`,
-        email: `${query.toLowerCase()}@example.com`,
-        status: requiredTargetStatus
-      };
-      handleSelectCandidate(createdCandidate);
+      toast.error(`No candidate found for reference "${manualSearchId}".`);
     }
   };
 
@@ -148,37 +120,39 @@ export default function Interviews() {
       ? (isSoftSkillTrainer ? 'HR_INTERVIEW_PASSED' : 'TECHNICAL_INTERVIEW_PASSED')
       : (isSoftSkillTrainer ? 'HR_INTERVIEW_FAILED' : 'TECHNICAL_INTERVIEW_FAILED');
 
+    const payload = {
+      studentId: formData.studentId,
+      trainerId: trainerId || user?.id || 'TRN101',
+      batchId: formData.batchId || null,
+      interviewDate: formData.interviewDate || new Date().toISOString().split('T')[0],
+      interviewType: isSoftSkillTrainer ? 'SOFT_SKILL' : 'TECHNICAL',
+      remarks: formData.remarks?.trim() || 'Interview evaluation recorded'
+    };
+
+    if (isSoftSkillTrainer) {
+      payload.softSkillMarks = Math.min(20, Math.max(0, Number(formData.softSkillMarks) || 0));
+      payload.communicationMarks = Math.min(20, Math.max(0, Number(formData.communicationMarks) || 0));
+      payload.behaviourMarks = Math.min(20, Math.max(0, Number(formData.behaviourMarks) || 0));
+    } else {
+      payload.technicalMarks = Math.min(40, Math.max(0, Number(formData.technicalMarks) || 0));
+      payload.problemSolvingMarks = Math.min(20, Math.max(0, Number(formData.problemSolvingMarks) || 0));
+    }
+
     try {
-      await conductInterview(formData);
+      await conductInterview(payload);
       if (selectedCandidate?.id) {
         await applicationApi.updateStatus(selectedCandidate.id, nextStatus);
       }
-    } catch (err) {}
-
-    // Update local state and localStorage
-    try {
-      const updatedAll = allCandidates.map(c =>
-        (c.id === selectedCandidate.id || c.applicationNumber === selectedCandidate.applicationNumber)
-          ? { ...c, status: nextStatus }
-          : c
-      );
-      setAllCandidates(updatedAll);
-      localStorage.setItem('spt_registered_applications', JSON.stringify(updatedAll));
-    } catch (e) {}
-
-    toast.success(`Interview Evaluation Saved! Candidate status updated to ${nextStatus}. 🎉`);
-    setSelectedCandidate(null);
-    setSubmitting(false);
-    fetchEligibleQueue();
+      toast.success(`Interview Evaluation Saved! Candidate status updated to ${nextStatus}. 🎉`);
+      setSelectedCandidate(null);
+      fetchEligibleQueue();
+    } catch (err) {
+      console.error('Failed to submit interview evaluation:', err);
+      toast.error(err.response?.data?.message || 'Failed to submit interview evaluation');
+    } finally {
+      setSubmitting(false);
+    }
   };
-
-  const avgScore = (
-    (formData.technicalMarks +
-      formData.softSkillMarks +
-      formData.communicationMarks +
-      formData.problemSolvingMarks +
-      formData.behaviourMarks) / 5
-  ).toFixed(1);
 
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto font-sans">
@@ -211,190 +185,211 @@ export default function Interviews() {
           <h3 className="text-sm font-bold flex items-center gap-2">
             <UserCheck size={16} className="text-red-400" /> Direct Candidate Search & Evaluation
           </h3>
-          <p className="text-xs text-gray-300">Enter Application Ref ID (e.g. APP7076, APP20268482) to evaluate candidate immediately</p>
+          <p className="text-xs text-gray-300">Enter Application Number (e.g. APP2026001) to select candidate</p>
         </div>
 
         <form onSubmit={handleManualSearch} className="flex items-center gap-2 w-full sm:w-auto">
           <input
             type="text"
-            placeholder="App Reference ID..."
+            placeholder="App Number (e.g. APP2026001)..."
             value={manualSearchId}
             onChange={(e) => setManualSearchId(e.target.value)}
-            className="form-input text-xs text-gray-900 bg-white border-0 w-44 font-mono font-bold"
+            className="form-input text-xs text-gray-900 bg-white min-w-[200px]"
           />
-          <button type="submit" className="btn bg-red-600 hover:bg-red-700 text-white text-xs py-2 px-3 font-bold whitespace-nowrap">
-            <Search size={14} /> Evaluate
+          <button type="submit" className="btn-primary text-xs font-bold whitespace-nowrap">
+            <Search size={14} /> Search
           </button>
         </form>
       </div>
 
-      {/* Eligible Candidates Queue */}
-      <div className="card border-red-100">
-        <div className="card-header flex justify-between items-center bg-gray-50/50">
-          <div className="flex items-center gap-2">
-            <Filter size={18} className="text-red-600" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: Eligible Candidate Queue */}
+        <div className="card lg:col-span-1 flex flex-col">
+          <div className="card-header border-b border-gray-100 pb-3 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+              <User size={16} className="text-red-600" /> Candidate Queue ({eligibleCandidates.length})
+            </h3>
+            <span className="text-[11px] text-gray-400 font-medium">Click to evaluate</span>
+          </div>
+
+          <div className="card-body p-3 flex-1 overflow-y-auto max-h-[500px]">
+            {loadingCandidates ? (
+              <div className="p-8 text-center">
+                <div className="spinner w-6 h-6 border-red-600 mx-auto" />
+                <p className="text-xs text-gray-400 mt-2">Loading candidates...</p>
+              </div>
+            ) : hasError ? (
+              <div className="p-6 text-center text-red-600 space-y-2 text-xs">
+                <ShieldAlert size={20} className="mx-auto" />
+                <p>Failed to load interview queue</p>
+                <button onClick={fetchEligibleQueue} className="text-red-700 font-bold underline">Retry</button>
+              </div>
+            ) : eligibleCandidates.length > 0 ? (
+              <div className="space-y-2">
+                {eligibleCandidates.map((cand, idx) => {
+                  const isSelected = selectedCandidate?.id === cand.id || selectedCandidate?.applicationNumber === cand.applicationNumber;
+                  return (
+                    <div
+                      key={cand.id || idx}
+                      onClick={() => handleSelectCandidate(cand)}
+                      className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-red-50/90 border-red-300 shadow-sm'
+                          : 'bg-white hover:bg-gray-50 border-gray-100'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-xs font-bold text-red-700">{cand.applicationNumber || cand.id}</span>
+                        <span className="badge-blue text-[10px]">{cand.status || 'PENDING'}</span>
+                      </div>
+                      <h4 className="text-xs font-bold text-gray-900 mt-1">{cand.fullName}</h4>
+                      <p className="text-[11px] text-gray-500">{cand.collegeName || cand.email}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-8 text-center text-gray-400 text-xs space-y-1">
+                <User size={24} className="mx-auto text-gray-300 mb-1" />
+                <p className="font-semibold text-gray-700">No Candidates in Queue</p>
+                <p className="text-[11px]">Candidates will appear once verified by Admin.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Scoring Form */}
+        <div className="card lg:col-span-2">
+          <div className="card-header border-b border-gray-100 pb-3">
             <h3 className="text-sm font-bold text-gray-900">
-              Candidate Interview Queue (Eligible Stage: {requiredTargetStatus})
+              {selectedCandidate ? `Scoring: ${selectedCandidate.fullName} (${selectedCandidate.applicationNumber || selectedCandidate.id})` : 'Select a candidate to begin evaluation'}
             </h3>
           </div>
-          <span className="badge-blue text-xs font-bold">{eligibleCandidates.length} Candidate(s) Available</span>
-        </div>
 
-        <div className="card-body p-0">
-          {loadingCandidates ? (
-            <div className="flex justify-center py-8"><div className="spinner w-8 h-8 border-red-600" /></div>
-          ) : eligibleCandidates.length > 0 ? (
-            <div className="table-container">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Application ID</th>
-                    <th>Candidate Name</th>
-                    <th>Email Contact</th>
-                    <th>College / Branch</th>
-                    <th>Current Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {eligibleCandidates.map(cand => (
-                    <tr key={cand.id} className={selectedCandidate?.id === cand.id ? 'bg-red-50/60' : ''}>
-                      <td className="font-mono text-xs font-bold text-red-600">{cand.applicationNumber || cand.id}</td>
-                      <td className="font-semibold text-gray-900 text-xs">{cand.fullName}</td>
-                      <td className="text-xs font-mono text-gray-600">{cand.email}</td>
-                      <td className="text-xs text-gray-500">{cand.collegeName || 'ISBM COE'}</td>
-                      <td><span className="badge-green text-[11px]">{cand.status}</span></td>
-                      <td>
-                        <button
-                          onClick={() => handleSelectCandidate(cand)}
-                          className="btn-primary text-xs py-1.5 px-3 shadow-sm font-bold"
-                        >
-                          Select & Evaluate
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="p-8 text-center text-xs text-gray-400">
-              No candidates currently pending for {isSoftSkillTrainer ? 'Soft-Skill' : 'Technical'} Interview evaluation. Use direct search above to load candidate.
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Evaluation Form */}
-      {selectedCandidate && (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-          <div className="card border-2 border-red-200 shadow-xl">
-            <div className="card-header bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-t-2xl">
-              <div className="flex items-center gap-2">
-                <Award size={20} className="text-red-400" />
-                <h3 className="text-sm font-bold text-white">
-                  Scorecard Evaluation for {selectedCandidate.fullName} ({selectedCandidate.applicationNumber || selectedCandidate.id})
-                </h3>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-300 font-medium">Average Rating:</span>
-                <span className="text-sm font-black text-red-400 bg-white/10 px-3 py-1 rounded-full">
-                  {avgScore} / 100
-                </span>
-              </div>
-            </div>
-
-            <div className="card-body flex flex-col gap-6 p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="form-group">
-                  <label className="form-label">Candidate App ID *</label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={formData.studentId}
-                    className="form-input font-mono font-bold bg-gray-100"
-                  />
-                </div>
+          <div className="card-body p-5">
+            {selectedCandidate ? (
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Scoring Fields */}
+                {isSoftSkillTrainer ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="form-group">
+                      <label className="form-label">Soft Skills (Max 20)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="20"
+                        required
+                        value={formData.softSkillMarks}
+                        onChange={(e) => setFormData({ ...formData, softSkillMarks: e.target.value })}
+                        className="form-input font-bold"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Communication (Max 20)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="20"
+                        required
+                        value={formData.communicationMarks}
+                        onChange={(e) => setFormData({ ...formData, communicationMarks: e.target.value })}
+                        className="form-input font-bold"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Behaviour / Attitude (Max 20)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="20"
+                        required
+                        value={formData.behaviourMarks}
+                        onChange={(e) => setFormData({ ...formData, behaviourMarks: e.target.value })}
+                        className="form-input font-bold"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="form-group">
+                      <label className="form-label">Technical Competence (Max 40)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="40"
+                        required
+                        value={formData.technicalMarks}
+                        onChange={(e) => setFormData({ ...formData, technicalMarks: e.target.value })}
+                        className="form-input font-bold"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Problem Solving / Logic (Max 20)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="20"
+                        required
+                        value={formData.problemSolvingMarks}
+                        onChange={(e) => setFormData({ ...formData, problemSolvingMarks: e.target.value })}
+                        className="form-input font-bold"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="form-group">
-                  <label className="form-label">Interview Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.interviewDate}
-                    onChange={(e) => setFormData({ ...formData, interviewDate: e.target.value })}
+                  <label className="form-label">Interview Remarks & Feedback</label>
+                  <textarea
+                    rows="3"
+                    value={formData.remarks}
+                    onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                    placeholder="Candidate demonstrated strong core fundamentals..."
                     className="form-input"
                   />
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Final Outcome *</label>
+                  <label className="form-label">Result Decision</label>
                   <select
                     value={formData.passStatus}
                     onChange={(e) => setFormData({ ...formData, passStatus: e.target.value })}
-                    className="form-select font-bold text-gray-900"
+                    className="form-input font-bold"
                   >
-                    <option value="PASS">PASS (QUALIFY FOR NEXT STAGE)</option>
-                    <option value="FAIL">FAIL (REJECT)</option>
+                    <option value="PASS">PASS — Recommend for Next Stage</option>
+                    <option value="REJECT">REJECT — Does Not Meet Criteria</option>
                   </select>
                 </div>
-              </div>
 
-              <div className="space-y-4 pt-4 border-t border-gray-100">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-red-600">
-                  Score Breakdown (0 to 100)
-                </h4>
-
-                <div className="bg-gray-50 p-4 rounded-xl flex flex-col gap-2">
-                  <div className="flex justify-between items-center text-xs font-bold text-gray-800">
-                    <span>1. Technical Competency & Code Logic</span>
-                    <span className="text-red-600 font-extrabold">{formData.technicalMarks} / 100</span>
-                  </div>
-                  <input type="range" min="0" max="100" value={formData.technicalMarks} onChange={(e) => setFormData({ ...formData, technicalMarks: Number(e.target.value) })} className="w-full accent-red-600" />
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCandidate(null)}
+                    className="btn bg-gray-100 text-gray-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="btn-primary shadow-md shadow-red-200 font-bold"
+                  >
+                    {submitting ? 'Saving Evaluation...' : 'Submit Evaluation'}
+                  </button>
                 </div>
-
-                <div className="bg-gray-50 p-4 rounded-xl flex flex-col gap-2">
-                  <div className="flex justify-between items-center text-xs font-bold text-gray-800">
-                    <span>2. Soft Skills & Communication</span>
-                    <span className="text-red-600 font-extrabold">{formData.softSkillMarks} / 100</span>
-                  </div>
-                  <input type="range" min="0" max="100" value={formData.softSkillMarks} onChange={(e) => setFormData({ ...formData, softSkillMarks: Number(e.target.value) })} className="w-full accent-red-600" />
-                </div>
-
-                <div className="bg-gray-50 p-4 rounded-xl flex flex-col gap-2">
-                  <div className="flex justify-between items-center text-xs font-bold text-gray-800">
-                    <span>3. Problem Solving & Aptitude</span>
-                    <span className="text-red-600 font-extrabold">{formData.problemSolvingMarks} / 100</span>
-                  </div>
-                  <input type="range" min="0" max="100" value={formData.problemSolvingMarks} onChange={(e) => setFormData({ ...formData, problemSolvingMarks: Number(e.target.value) })} className="w-full accent-red-600" />
-                </div>
+              </form>
+            ) : (
+              <div className="p-16 text-center text-gray-400 space-y-2">
+                <Award size={36} className="text-gray-300 mx-auto mb-2" />
+                <h4 className="text-sm font-bold text-gray-700">No Candidate Selected</h4>
+                <p className="text-xs max-w-sm mx-auto">
+                  Click any candidate from the queue on the left or search by Application Reference ID to enter marks.
+                </p>
               </div>
-
-              <div className="form-group pt-2">
-                <label className="form-label">Interviewer Feedback & Remarks *</label>
-                <textarea
-                  rows="3"
-                  required
-                  placeholder="Enter detailed evaluation feedback..."
-                  value={formData.remarks}
-                  onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                  className="form-textarea"
-                />
-              </div>
-            </div>
-
-            <div className="card-footer p-4 bg-gray-50 border-t flex justify-end gap-3 rounded-b-2xl">
-              <button type="button" onClick={() => setSelectedCandidate(null)} className="btn-outline">
-                Cancel
-              </button>
-              <button type="submit" disabled={submitting} className="btn-primary px-8 py-3 shadow-md shadow-red-200 font-bold">
-                {submitting ? <div className="spinner border-white border-t-transparent w-5 h-5" /> : <Save size={18} />}
-                <span>Submit Evaluation & Update Status</span>
-              </button>
-            </div>
+            )}
           </div>
-        </form>
-      )}
+        </div>
+      </div>
     </div>
   );
 }

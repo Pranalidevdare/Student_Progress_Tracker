@@ -13,11 +13,17 @@ public interface StudentRepository extends MongoRepository<Student, String> {
 
     Optional<Student> findByEmail(String email);
 
+    List<Student> findAllByEmail(String email);
+
     boolean existsByEmail(String email);
 
     Optional<Student> findByMobile(String mobile);
 
+    List<Student> findAllByMobile(String mobile);
+
     Optional<Student> findByStudentId(String studentId);
+
+    List<Student> findAllByStudentId(String studentId);
 
     long countByBatchId(String batchId);
 

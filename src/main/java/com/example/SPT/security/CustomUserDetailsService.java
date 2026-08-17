@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import com.example.SPT.entity.User;
 import com.example.SPT.repository.UserRepository;
 
-
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 
@@ -24,17 +23,22 @@ public class CustomUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String email)
             throws UsernameNotFoundException {
 
-        List<User> users = userRepository.findAllByEmail(email);
+        if (email == null || email.isBlank()) {
+            throw new UsernameNotFoundException("Email cannot be empty");
+        }
+
+        List<User> users = userRepository.findAllByEmail(email.trim());
 
         if (users.isEmpty()) {
-            throw new UsernameNotFoundException("User not found");
+            return userRepository.findByEmail(email.trim())
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found for email: " + email));
         }
 
-        if (users.size() > 1) {
-            throw new UsernameNotFoundException("Multiple user records found for this email");
-        }
-
-        return users.get(0);
+        // Prioritize enabled users with active roles
+        return users.stream()
+                .filter(u -> Boolean.TRUE.equals(u.getEnabled()) && u.getRole() != null)
+                .findFirst()
+                .orElse(users.get(0));
     }
 
 }

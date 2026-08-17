@@ -1,56 +1,105 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getToppersByBatch } from '../api/topperApi';
-import { Trophy, Award, Search, User, Lock, ShieldAlert, Sparkles, CheckCircle2 } from 'lucide-react';
+import { getToppersByBatch, getAllToppers } from '../api/topperApi';
+import api from '../api/axios';
+import { Trophy, Award, Search, User, Lock, ShieldAlert, Sparkles, CheckCircle2, RefreshCw, Filter } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Toppers() {
   const { user } = useAuth();
-  const studentBatchId = user?.batchId || user?.batch || localStorage.getItem('batchId') || 'BATCH001';
-  const studentId = user?.id || user?.studentId || user?.email || 'STU001';
+  const roleStr = String(user?.role || '').toUpperCase();
+  const isStudent = roleStr.includes('STUDENT');
+  const isAdmin = roleStr.includes('ADMIN');
+  const isTrainer = roleStr.includes('TRAINER');
+
+  const studentBatchId = user?.batchId || user?.batch || localStorage.getItem('batchId') || '';
+  const studentId = user?.id || user?.studentId || user?.email || '';
   const studentName = user?.fullName || 'Student Candidate';
 
+  const [selectedBatchId, setSelectedBatchId] = useState(studentBatchId);
+  const [batches, setBatches] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Load available batches for Admin / Trainer
+  useEffect(() => {
+    if (!isStudent) {
+      api.get('/batches/active')
+        .then(res => {
+          if (Array.isArray(res.data) && res.data.length > 0) {
+            setBatches(res.data);
+            if (!selectedBatchId) {
+              setSelectedBatchId(res.data[0].id || res.data[0].batchName || '');
+            }
+          }
+        })
+        .catch(() => {
+          // If active batches endpoint is unavailable, continue with default view
+        });
+    }
+  }, [isStudent]);
 
   useEffect(() => {
     fetchBatchLeaderboard();
-  }, [studentBatchId]);
+  }, [selectedBatchId, isStudent]);
 
   const fetchBatchLeaderboard = async () => {
     setLoading(true);
     setHasError(false);
+    setErrorMessage('');
     try {
-      const res = await getToppersByBatch(studentBatchId);
-      setLeaderboard(Array.isArray(res.data) ? res.data : []);
+      let res;
+      if (selectedBatchId && selectedBatchId.trim() !== '') {
+        res = await getToppersByBatch(selectedBatchId);
+      } else {
+        res = await getAllToppers();
+      }
+
+      if (res && res.data) {
+        setLeaderboard(Array.isArray(res.data) ? res.data : []);
+      } else {
+        setLeaderboard([]);
+      }
     } catch (err) {
       console.error('Failed to load batch leaderboard:', err);
-      setHasError(true);
-      toast.error('Unable to load batch leaderboard. Please try again later.');
+      // Only set error on true server/network failures
+      if (err.response?.status === 404) {
+        // 404 is an empty state for optional batch
+        setLeaderboard([]);
+      } else {
+        setHasError(true);
+        setErrorMessage(
+          err.response?.data?.message ||
+          'Unable to reach server to retrieve batch leaderboard. Please try again.'
+        );
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Find Current Student in Leaderboard
-  const myPerformanceRecord = leaderboard.find(item =>
-    (item.studentId && item.studentId.toLowerCase() === studentId.toLowerCase()) ||
-    (item.studentName && item.studentName.toLowerCase() === studentName.toLowerCase())
-  );
+  // Find Current Student in Leaderboard (only for Students)
+  const myPerformanceRecord = isStudent
+    ? leaderboard.find(item =>
+        (item.studentId && studentId && item.studentId.toLowerCase() === studentId.toLowerCase()) ||
+        (item.studentName && studentName && item.studentName.toLowerCase() === studentName.toLowerCase())
+      )
+    : null;
 
   const filteredLeaderboard = leaderboard.filter(item => {
     const term = searchTerm.toLowerCase().trim();
     if (!term) return true;
     return (
-      item.studentName?.toLowerCase().includes(term) ||
-      item.studentId?.toLowerCase().includes(term)
+      (item.studentName && item.studentName.toLowerCase().includes(term)) ||
+      (item.studentId && item.studentId.toLowerCase().includes(term))
     );
   });
 
   const totalStudents = leaderboard.length;
-  const myRank = myPerformanceRecord?.rank || (leaderboard.indexOf(myPerformanceRecord) + 1) || 1;
+  const myRank = myPerformanceRecord?.rank || (myPerformanceRecord ? leaderboard.indexOf(myPerformanceRecord) + 1 : null);
 
   const getStatusBadgeClass = (st) => {
     switch (st) {
@@ -81,18 +130,40 @@ export default function Toppers() {
             <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">Batch Leaderboard</h1>
           </div>
           <p className="text-xs text-amber-200/80 max-w-xl">
-            See how you are performing compared with students in your assigned batch ({studentBatchId}).
+            {isStudent
+              ? `Track your academic standing and ranking within your assigned batch (${selectedBatchId || 'General'}).`
+              : 'View academic performance rankings and student leaderboard standings across batches.'}
           </p>
         </div>
 
-        {/* Read-Only Batch Tag */}
-        <div className="flex items-center gap-2 px-3.5 py-2 bg-white/10 backdrop-blur-md rounded-xl text-xs font-bold border border-white/20 select-none">
-          <span className="text-amber-200 font-medium">Batch:</span>
-          <span className="font-mono text-amber-300 bg-amber-400/20 px-2 py-0.5 rounded border border-amber-300/30 flex items-center gap-1">
-            {studentBatchId} <Lock size={11} className="text-amber-200" />
-          </span>
-          <span className="text-[10px] text-amber-200 uppercase font-semibold bg-white/10 px-1.5 py-0.5 rounded">STUDENT VIEW</span>
-        </div>
+        {/* Batch Filter for Faculty/Admin or Badge for Student */}
+        {!isStudent && batches.length > 0 ? (
+          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20">
+            <Filter size={14} className="text-amber-300" />
+            <select
+              value={selectedBatchId}
+              onChange={(e) => setSelectedBatchId(e.target.value)}
+              className="bg-transparent text-xs text-white font-bold outline-none cursor-pointer"
+            >
+              <option value="" className="text-gray-900">All Batches (Overall)</option>
+              {batches.map(b => (
+                <option key={b.id || b.batchName} value={b.id || b.batchName} className="text-gray-900">
+                  {b.batchName || b.id}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 px-3.5 py-2 bg-white/10 backdrop-blur-md rounded-xl text-xs font-bold border border-white/20 select-none">
+            <span className="text-amber-200 font-medium">Batch:</span>
+            <span className="font-mono text-amber-300 bg-amber-400/20 px-2 py-0.5 rounded border border-amber-300/30 flex items-center gap-1">
+              {selectedBatchId || 'General'} <Lock size={11} className="text-amber-200" />
+            </span>
+            <span className="text-[10px] text-amber-200 uppercase font-semibold bg-white/10 px-1.5 py-0.5 rounded">
+              {roleStr || 'VIEW'}
+            </span>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -101,88 +172,105 @@ export default function Toppers() {
           <p className="text-xs text-gray-400 mt-3 font-semibold">Loading batch leaderboard from database...</p>
         </div>
       ) : hasError ? (
-        <div className="card p-12 text-center bg-red-50/40 border border-red-200">
-          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-3">
+        <div className="card p-12 text-center bg-red-50/40 border border-red-200 space-y-3">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
             <ShieldAlert size={24} />
           </div>
-          <h3 className="text-sm font-extrabold text-red-900">Unable to load batch leaderboard</h3>
-          <p className="text-xs text-red-700 mt-1 max-w-sm mx-auto leading-relaxed">
-            Please try again later or contact your batch instructor.
-          </p>
+          <div className="space-y-1 max-w-md mx-auto">
+            <h3 className="text-sm font-extrabold text-red-900">Unable to load leaderboard data</h3>
+            <p className="text-xs text-red-700 leading-relaxed">
+              {errorMessage || 'A network error occurred while connecting to the server.'}
+            </p>
+          </div>
+          <button
+            onClick={fetchBatchLeaderboard}
+            className="btn bg-red-600 text-white hover:bg-red-700 text-xs font-bold px-4 py-2 mx-auto flex items-center gap-1.5 shadow"
+          >
+            <RefreshCw size={13} />
+            <span>Retry Connection</span>
+          </button>
         </div>
       ) : (
         <>
-          {/* 1. YOUR BATCH RANK SUMMARY CARD */}
-          <div className="card p-6 bg-gradient-to-r from-slate-900 via-amber-950 to-slate-900 text-white border-0 shadow-xl space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-              <div className="space-y-1">
-                <span className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-400/30 inline-block">
-                  YOUR BATCH RANK
-                </span>
-                <h2 className="text-2xl font-black">{studentName}</h2>
-                <p className="text-xs text-gray-300">
-                  Student ID: <span className="font-mono text-amber-300 font-bold">{studentId}</span> • Batch: <span className="font-mono text-amber-300 font-bold">{studentBatchId}</span>
-                </p>
+          {/* 1. STUDENT SPECIFIC RANK CARD (Only displayed for enrolled students) */}
+          {isStudent && (
+            <div className="card p-6 bg-gradient-to-r from-slate-900 via-amber-950 to-slate-900 text-white border-0 shadow-xl space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                <div className="space-y-1">
+                  <span className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-400/30 inline-block">
+                    YOUR BATCH STANDING
+                  </span>
+                  <h2 className="text-2xl font-black">{studentName}</h2>
+                  <p className="text-xs text-gray-300">
+                    Student ID: <span className="font-mono text-amber-300 font-bold">{studentId || 'Not assigned'}</span> • Batch: <span className="font-mono text-amber-300 font-bold">{selectedBatchId || 'Not assigned'}</span>
+                  </p>
+                </div>
+
+                {myPerformanceRecord ? (
+                  <div className="flex items-center gap-6 bg-white/5 p-4 rounded-2xl border border-white/10">
+                    <div className="text-center px-2">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Your Rank</span>
+                      <span className="text-3xl font-black text-amber-400 mt-1 flex items-center justify-center gap-1">
+                        <Trophy size={22} className="text-amber-400" />
+                        #{myRank} <span className="text-xs font-normal text-gray-400">/ {totalStudents}</span>
+                      </span>
+                    </div>
+
+                    <div className="text-center px-4 border-l border-white/10">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Overall Performance</span>
+                      <span className="text-3xl font-black text-emerald-400 mt-1 block">
+                        {myPerformanceRecord.overallPercentage != null ? `${myPerformanceRecord.overallPercentage.toFixed(1)}%` : 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-white/10 rounded-2xl border border-white/15 max-w-sm text-xs text-amber-200">
+                    <p className="font-extrabold text-white mb-1">Performance Evaluation Pending</p>
+                    <p className="text-[11px] leading-relaxed">
+                      Your rank will appear once your assignments and assessments have been graded by your instructor.
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {myPerformanceRecord ? (
-                <div className="flex items-center gap-6 bg-white/5 p-4 rounded-2xl border border-white/10">
-                  <div className="text-center px-2">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Your Rank</span>
-                    <span className="text-3xl font-black text-amber-400 mt-1 flex items-center justify-center gap-1">
-                      <Trophy size={22} className="text-amber-400" />
-                      #{myRank} <span className="text-xs font-normal text-gray-400">/ {totalStudents}</span>
-                    </span>
-                  </div>
-
-                  <div className="text-center px-4 border-l border-white/10">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Overall Performance</span>
-                    <span className="text-3xl font-black text-emerald-400 mt-1 block">
-                      {myPerformanceRecord.overallPercentage ? `${myPerformanceRecord.overallPercentage.toFixed(1)}%` : '93.8%'}
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 bg-white/10 rounded-2xl border border-white/15 max-w-sm text-xs text-amber-200">
-                  <p className="font-extrabold text-white mb-1">Your Performance: Not Available Yet</p>
-                  <p className="text-[11px] leading-relaxed">
-                    Your rank will be calculated once your assessments, assignments and attendance have been evaluated by your instructor.
-                  </p>
+              {myPerformanceRecord && (
+                <div className="pt-3 border-t border-white/10 flex items-center justify-between">
+                  <span className={`px-3 py-1 rounded-full text-xs font-extrabold border ${getStatusBadgeClass(myPerformanceRecord.performanceStatus || 'EXCELLENT')}`}>
+                    Status: {myPerformanceRecord.performanceStatus || 'Active'}
+                  </span>
+                  <span className="text-xs text-gray-400 font-medium">
+                    Calculated for Batch: {selectedBatchId || 'General'}
+                  </span>
                 </div>
               )}
             </div>
+          )}
 
-            {myPerformanceRecord && (
-              <div className="pt-3 border-t border-white/10 flex items-center justify-between">
-                <span className={`px-3 py-1 rounded-full text-xs font-extrabold border ${getStatusBadgeClass(myPerformanceRecord.performanceStatus || 'EXCELLENT')}`}>
-                  Status: {myPerformanceRecord.performanceStatus || 'EXCELLENT'}
-                </span>
-                <span className="text-xs text-gray-400 font-medium">Rankings calculated across Batch {studentBatchId}</span>
-              </div>
-            )}
-          </div>
-
-          {/* 2. BATCH LEADERBOARD TABLE & SEARCH */}
+          {/* 2. LEADERBOARD TABLE & SEARCH */}
           <div className="card space-y-4 p-5">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-3 border-b border-gray-100">
               <div>
-                <h3 className="text-base font-extrabold text-gray-900">Batch Leaderboard</h3>
+                <h3 className="text-base font-extrabold text-gray-900">
+                  {selectedBatchId ? `Batch Leaderboard (${selectedBatchId})` : 'Overall Leaderboard'}
+                </h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Batch: <span className="font-mono font-bold text-red-700">{studentBatchId}</span> • Total Students: <span className="font-bold text-gray-900">{totalStudents}</span> • Ranked: <span className="font-bold text-gray-900">{totalStudents}</span>
+                  Total Students Ranked: <span className="font-bold text-gray-900">{totalStudents}</span>
                 </p>
               </div>
 
-              {/* Search input for filtering current batch students */}
-              <div className="relative min-w-[220px]">
-                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search by name or ID..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="form-input pl-9 text-xs"
-                />
-              </div>
+              {/* Search input */}
+              {totalStudents > 0 && (
+                <div className="relative min-w-[220px]">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by student name or ID..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="form-input pl-9 text-xs"
+                  />
+                </div>
+              )}
             </div>
 
             {filteredLeaderboard.length > 0 ? (
@@ -199,8 +287,10 @@ export default function Toppers() {
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-xs font-medium">
                     {filteredLeaderboard.map((item, idx) => {
-                      const isMe = (item.studentId && item.studentId.toLowerCase() === studentId.toLowerCase()) ||
-                                   (item.studentName && item.studentName.toLowerCase() === studentName.toLowerCase());
+                      const isMe = isStudent && (
+                        (item.studentId && studentId && item.studentId.toLowerCase() === studentId.toLowerCase()) ||
+                        (item.studentName && studentName && item.studentName.toLowerCase() === studentName.toLowerCase())
+                      );
                       const itemRank = item.rank || idx + 1;
 
                       return (
@@ -236,10 +326,12 @@ export default function Toppers() {
                               )}
                             </div>
                           </td>
-                          <td className="py-3 px-4 font-mono font-bold text-gray-800">{item.studentId || 'STU00' + (idx + 1)}</td>
+                          <td className="py-3 px-4 font-mono font-bold text-gray-800">
+                            {item.studentId || 'N/A'}
+                          </td>
                           <td className="py-3 px-4 font-bold text-gray-900">
                             <div className="flex items-center gap-2">
-                              <span>{item.studentName || 'Student Candidate'}</span>
+                              <span>{item.studentName || 'Student'}</span>
                               {isMe && (
                                 <span className="px-2 py-0.5 rounded bg-amber-600 text-white text-[10px] font-black tracking-wide shadow-2xs">
                                   YOU
@@ -248,11 +340,11 @@ export default function Toppers() {
                             </div>
                           </td>
                           <td className="py-3 px-4 font-black text-emerald-700 text-sm">
-                            {item.overallPercentage ? `${item.overallPercentage.toFixed(1)}%` : '90.0%'}
+                            {item.overallPercentage != null ? `${item.overallPercentage.toFixed(1)}%` : 'N/A'}
                           </td>
                           <td className="py-3 px-4">
                             <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${getStatusBadgeClass(item.performanceStatus || 'EXCELLENT')}`}>
-                              {item.performanceStatus || 'EXCELLENT'}
+                              {item.performanceStatus || 'Active'}
                             </span>
                           </td>
                         </tr>
@@ -268,15 +360,17 @@ export default function Toppers() {
                   <Trophy size={28} />
                 </div>
                 <div className="space-y-1 max-w-md mx-auto">
-                  <h3 className="text-base font-extrabold text-gray-900">Batch Leaderboard Not Available</h3>
+                  <h3 className="text-base font-extrabold text-gray-900">No Leaderboard Rankings Available</h3>
                   <p className="text-xs text-gray-500 leading-relaxed">
-                    Your batch leaderboard will appear here once performance evaluations have been completed and ranking data is available.
+                    Rankings will appear here once faculty instructors grade student assessments and assignments.
                   </p>
-                  <div className="pt-2">
-                    <span className="badge bg-amber-50 text-amber-800 border border-amber-200 font-mono text-[11px]">
-                      Batch: {studentBatchId}
-                    </span>
-                  </div>
+                  {selectedBatchId && (
+                    <div className="pt-2">
+                      <span className="badge bg-amber-50 text-amber-800 border border-amber-200 font-mono text-[11px]">
+                        Batch: {selectedBatchId}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

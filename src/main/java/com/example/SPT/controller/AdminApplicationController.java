@@ -162,9 +162,9 @@ public class AdminApplicationController {
     }
 
     /**
-     * Change/reassign batch for an application
+     * Change/reassign batch for an application (supports both PATCH and POST)
      */
-    @PatchMapping("/change-batch")
+    @RequestMapping(value = "/change-batch", method = {org.springframework.web.bind.annotation.RequestMethod.PATCH, org.springframework.web.bind.annotation.RequestMethod.POST})
     public ResponseEntity<ApplicationResponse> changeBatch(
             @Valid @RequestBody BatchAssignmentRequest request) {
         
