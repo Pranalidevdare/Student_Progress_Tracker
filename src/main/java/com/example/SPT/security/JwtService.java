@@ -1,0 +1,83 @@
+package com.example.SPT.security;
+
+import java.security.Key;
+import java.util.Date;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+
+@Service
+public class JwtService {
+
+    @Value("${jwt.secret}")
+    private String secretKey;
+
+    @Value("${jwt.expiration}")
+    private long jwtExpiration;
+
+    private Key getSignInKey() {
+        try {
+            byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+            if (keyBytes.length >= 32) {
+                return Keys.hmacShaKeyFor(keyBytes);
+            }
+        } catch (Exception ignored) {
+        }
+        byte[] keyBytes = secretKey.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    public String generateToken(String email) {
+        return generateToken(email, false);
+    }
+
+    public String generateToken(String email, boolean mustChangePassword) {
+        return Jwts.builder()
+                .setSubject(email)
+                .claim("mustChangePassword", mustChangePassword)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + jwtExpiration))
+                .signWith(getSignInKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public boolean isMustChangePassword(String token) {
+        Boolean mustChangePassword = extractAllClaims(token)
+                .get("mustChangePassword", Boolean.class);
+        return Boolean.TRUE.equals(mustChangePassword);
+    }
+
+    public String extractEmail(String token) {
+
+        return extractAllClaims(token).getSubject();
+    }
+
+    public boolean isTokenValid(String token, String email) {
+
+        return extractEmail(token).equals(email)
+                && !isTokenExpired(token);
+    }
+
+    private boolean isTokenExpired(String token) {
+
+        return extractAllClaims(token)
+                .getExpiration()
+                .before(new Date());
+    }
+
+    private Claims extractAllClaims(String token) {
+
+        return Jwts.parserBuilder()
+                .setSigningKey(getSignInKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+}
