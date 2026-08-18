@@ -136,7 +136,7 @@ public class ApplicationServiceImpl implements ApplicationService {
                         sequence));
 
         
-        if (request.getFamilyIncome() < 400000) {
+        if (request.getFamilyIncome() != null && request.getFamilyIncome() <= 400000) {
 
             application.setStatus(
                     ApplicationStatus.ELIGIBLE_FOR_APTITUDE);

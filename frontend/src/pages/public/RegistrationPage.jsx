@@ -91,7 +91,7 @@ export default function RegistrationPage() {
 
     const generatedAppNum = `APP${Math.floor(1000 + Math.random() * 9000)}`;
     const familyIncomeVal = Number(form.familyIncome);
-    const calculatedStatus = familyIncomeVal < 400000 ? 'ELIGIBLE_FOR_APTITUDE' : 'NOT_ELIGIBLE';
+    const calculatedStatus = familyIncomeVal <= 400000 ? 'ELIGIBLE_FOR_APTITUDE' : 'NOT_ELIGIBLE';
 
     try {
       // Map frontend form values to backend DTO expected types/names

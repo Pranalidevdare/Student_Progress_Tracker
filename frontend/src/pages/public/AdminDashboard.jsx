@@ -49,7 +49,7 @@ export default function AdminDashboard() {
     startTime: '10:00',
     endTime: '11:00',
     trainingCenter: 'InfoBeans Foundation Pune',
-    eligibilityCriteria: 'Family Income < 4 Lakhs'
+    eligibilityCriteria: 'Family Income ≤ 4 Lakhs'
   });
 
   // Batch Assignment Modal
@@ -533,7 +533,7 @@ export default function AdminDashboard() {
                 >
                   <option value="ALL">ALL STATUSES ({applications.length})</option>
                   <option value="ELIGIBLE_FOR_APTITUDE">ELIGIBLE FOR APTITUDE</option>
-                  <option value="NOT_ELIGIBLE">NOT ELIGIBLE (Income ≥ 4L)</option>
+                  <option value="NOT_ELIGIBLE">NOT ELIGIBLE (Income > 4L)</option>
                   <option value="APTITUDE_SCHEDULED">APTITUDE SCHEDULED</option>
                   <option value="APTITUDE_PASSED">APTITUDE PASSED</option>
                   <option value="DOCUMENTS_SUBMITTED">DOCUMENTS SUBMITTED</option>

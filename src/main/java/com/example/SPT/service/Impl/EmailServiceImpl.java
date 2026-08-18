@@ -103,7 +103,7 @@ public class EmailServiceImpl implements EmailService {
         message.setText(
                 "Dear " + studentName + ",\n\n"
                 + "Congratulations!\n\n"
-                + "Your registration application has been processed. Based on the family income criteria (< 4 Lakhs), "
+                + "Your registration application has been processed. Based on the family income criteria (<= 4 Lakhs), "
                 + "you are SELECTED FOR THE APTITUDE TEST.\n\n"
                 + "Please log in to your portal account to check your scheduled test time and complete your Aptitude Examination.\n\n"
                 + "Best of luck!\n\n"
