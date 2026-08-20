@@ -183,6 +183,131 @@ public class AttendanceServiceImpl implements AttendanceService {
     }
 
     @Override
+    public com.example.SPT.dto.response.StudentPersonalAttendanceResponse getPersonalAttendance(String userEmailOrStudentId) {
+        if (userEmailOrStudentId == null || userEmailOrStudentId.isBlank()) {
+            throw new IllegalArgumentException("Student identifier or authenticated email is required");
+        }
+
+        final String cleanId = userEmailOrStudentId.trim();
+
+        // 1. Resolve student entity
+        Student student = studentRepository.findById(cleanId)
+                .or(() -> studentRepository.findByEmail(cleanId))
+                .or(() -> studentRepository.findByEmail(cleanId.toLowerCase()))
+                .or(() -> studentRepository.findByStudentId(cleanId))
+                .or(() -> studentRepository.findAllByStudentId(cleanId).stream().findFirst())
+                .or(() -> studentRepository.findAllByEmail(cleanId).stream().findFirst())
+                .orElse(null);
+
+        if (student == null) {
+            User user = userRepository.findByEmail(cleanId)
+                    .or(() -> userRepository.findById(cleanId))
+                    .orElse(null);
+            if (user != null) {
+                student = studentRepository.findByEmail(user.getEmail())
+                        .or(() -> studentRepository.findAllByEmail(user.getEmail()).stream().findFirst())
+                        .orElse(null);
+
+                if (student == null) {
+                    return com.example.SPT.dto.response.StudentPersonalAttendanceResponse.builder()
+                            .studentId(user.getId())
+                            .studentName(user.getFullName() != null ? user.getFullName() : "Student")
+                            .studentEmail(user.getEmail())
+                            .batchId(null)
+                            .batchName("No batch assigned")
+                            .overallAttendance(0.0)
+                            .overallAttendancePercentage(0.0)
+                            .daysPresent(0)
+                            .daysLate(0)
+                            .daysAbsent(0)
+                            .daysLeave(0)
+                            .totalEntries(0)
+                            .totalAttendanceDays(0)
+                            .records(Collections.emptyList())
+                            .build();
+                }
+            }
+        }
+
+        if (student == null) {
+            throw new ResourceNotFoundException("Student not found for identifier: " + cleanId);
+        }
+
+        String studentName = ((student.getFirstName() != null ? student.getFirstName() : "") + " " +
+                              (student.getLastName() != null ? student.getLastName() : "")).trim();
+        if (studentName.isEmpty()) {
+            studentName = student.getEmail() != null ? student.getEmail() : "Student";
+        }
+
+        // 2. Query all personal attendance records for this student
+        Set<String> queryIds = new LinkedHashSet<>();
+        if (student.getId() != null) queryIds.add(student.getId());
+        if (student.getStudentId() != null && !student.getStudentId().isBlank()) queryIds.add(student.getStudentId());
+        if (student.getEmail() != null && !student.getEmail().isBlank()) queryIds.add(student.getEmail());
+
+        List<Attendance> allStudentRecords = new ArrayList<>();
+        for (String qId : queryIds) {
+            List<Attendance> list = attendanceRepository.findByStudentId(qId);
+            if (list != null) {
+                for (Attendance a : list) {
+                    if (a != null && a.getId() != null && allStudentRecords.stream().noneMatch(x -> a.getId().equals(x.getId()))) {
+                        allStudentRecords.add(a);
+                    }
+                }
+            }
+        }
+
+        // Sort descending by date
+        allStudentRecords.sort((a, b) -> {
+            if (a.getAttendanceDate() == null && b.getAttendanceDate() == null) return 0;
+            if (a.getAttendanceDate() == null) return 1;
+            if (b.getAttendanceDate() == null) return -1;
+            return b.getAttendanceDate().compareTo(a.getAttendanceDate());
+        });
+
+        // 3. Compute stats
+        long totalEntries = allStudentRecords.size();
+        long daysPresent = allStudentRecords.stream().filter(r -> "PRESENT".equalsIgnoreCase(r.getStatus())).count();
+        long daysLate = allStudentRecords.stream().filter(r -> "LATE".equalsIgnoreCase(r.getStatus())).count();
+        long daysAbsent = allStudentRecords.stream().filter(r -> "ABSENT".equalsIgnoreCase(r.getStatus())).count();
+        long daysLeave = allStudentRecords.stream().filter(r -> "LEAVE".equalsIgnoreCase(r.getStatus())).count();
+
+        double overallAttendance = totalEntries > 0
+                ? Math.round(((daysPresent + daysLate) * 100.0 / totalEntries) * 10.0) / 10.0
+                : 0.0;
+
+        // Resolve Batch name
+        String batchName = student.getBatchName();
+        if ((batchName == null || batchName.isBlank()) && student.getBatchId() != null && !student.getBatchId().isBlank()) {
+            Batch b = batchRepository.findById(student.getBatchId()).orElse(null);
+            if (b != null && b.getBatchName() != null) {
+                batchName = b.getBatchName();
+            }
+        }
+
+        List<AttendanceResponse> responseList = allStudentRecords.stream()
+                .map(attendanceMapper::toResponse)
+                .collect(Collectors.toList());
+
+        return com.example.SPT.dto.response.StudentPersonalAttendanceResponse.builder()
+                .studentId(student.getStudentId() != null ? student.getStudentId() : student.getId())
+                .studentName(studentName)
+                .studentEmail(student.getEmail())
+                .batchId(student.getBatchId())
+                .batchName(batchName != null ? batchName : "No batch assigned")
+                .overallAttendance(overallAttendance)
+                .overallAttendancePercentage(overallAttendance)
+                .daysPresent(daysPresent)
+                .daysLate(daysLate)
+                .daysAbsent(daysAbsent)
+                .daysLeave(daysLeave)
+                .totalEntries(totalEntries)
+                .totalAttendanceDays(totalEntries)
+                .records(responseList)
+                .build();
+    }
+
+    @Override
     public List<AttendanceResponse> getAttendanceByBatch(String batchId) {
         if (batchId == null || batchId.isBlank()) {
             return Collections.emptyList();

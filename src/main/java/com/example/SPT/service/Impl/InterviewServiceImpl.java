@@ -7,6 +7,8 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import com.example.SPT.dto.request.InterviewRequest;
@@ -17,6 +19,9 @@ import com.example.SPT.entity.Interview;
 import com.example.SPT.entity.SelectionStatus;
 import com.example.SPT.entity.Student;
 import com.example.SPT.entity.User;
+import com.example.SPT.enums.ApplicationStatus;
+import com.example.SPT.enums.Role;
+import com.example.SPT.enums.TrainerType;
 import com.example.SPT.mapper.InterviewMapper;
 import com.example.SPT.repository.ApplicationRepository;
 import com.example.SPT.repository.InterviewRepository;
@@ -58,20 +63,20 @@ public class InterviewServiceImpl implements InterviewService {
 
         validateRequest(request);
 
+        Optional<Application> appOpt = applicationRepository.findByApplicationNumber(request.getStudentId());
+        if (appOpt.isEmpty()) {
+            appOpt = applicationRepository.findById(request.getStudentId());
+        }
+        if (appOpt.isEmpty()) {
+            appOpt = applicationRepository.findByEmail(request.getStudentId());
+        }
+
         Student student = studentRepository
                 .findById(request.getStudentId())
                 .or(() -> studentRepository.findByEmail(request.getStudentId()))
                 .orElse(null);
 
         if (student == null) {
-            Optional<Application> appOpt = applicationRepository.findByApplicationNumber(request.getStudentId());
-            if (appOpt.isEmpty()) {
-                appOpt = applicationRepository.findById(request.getStudentId());
-            }
-            if (appOpt.isEmpty()) {
-                appOpt = applicationRepository.findByEmail(request.getStudentId());
-            }
-
             if (appOpt.isPresent()) {
                 Application app = appOpt.get();
                 student = studentRepository.findByEmail(app.getEmail()).orElse(null);
@@ -98,8 +103,38 @@ public class InterviewServiceImpl implements InterviewService {
                 .trim()
                 .toUpperCase(Locale.ROOT);
 
+        // -----------------------------------------------------
+        // TRAINER ROLE-BASED AUTHORIZATION CHECK
+        // -----------------------------------------------------
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String tempCaller = null;
+        if (auth != null && auth.isAuthenticated() && !auth.getName().equalsIgnoreCase("anonymousUser")) {
+            tempCaller = auth.getName();
+        }
+        if (tempCaller == null || tempCaller.isBlank()) {
+            tempCaller = request.getTrainerId();
+        }
+        final String trainerIdentifier = tempCaller;
+
+        if (trainerIdentifier != null && !trainerIdentifier.isBlank()) {
+            Optional<User> trainerUserOpt = userRepository.findByEmail(trainerIdentifier)
+                    .or(() -> userRepository.findById(trainerIdentifier));
+            if (trainerUserOpt.isPresent()) {
+                User trainerUser = trainerUserOpt.get();
+                if (trainerUser.getRole() == Role.TRAINER) {
+                    TrainerType tType = trainerUser.getTrainerType();
+                    if (tType == TrainerType.TECHNICAL && !"TECHNICAL".equals(interviewType)) {
+                        throw new IllegalStateException("Technical Trainers are only authorized to evaluate Technical Interviews.");
+                    } else if (tType == TrainerType.SOFT_SKILLS && !"SOFT_SKILL".equals(interviewType)) {
+                        throw new IllegalStateException("Soft-Skill / HR Trainers are only authorized to evaluate Soft-Skill / HR Interviews.");
+                    }
+                }
+            }
+        }
+
         validateSelectionStage(
                 student,
+                appOpt.orElse(null),
                 interviewType);
 
         int totalMarks;
@@ -217,13 +252,15 @@ public class InterviewServiceImpl implements InterviewService {
                 interviewRepository.save(interview);
 
         // -----------------------------------------------------
-        // UPDATE STUDENT SELECTION STATUS
+        // UPDATE STUDENT & APPLICATION SELECTION STATUS
         // -----------------------------------------------------
 
         updateStudentSelectionStatus(
                 student,
                 interviewType,
-                status);
+                status,
+                interview.getRemarks(),
+                appOpt);
 
         return interviewMapper.toResponse(
                 savedInterview);
@@ -412,7 +449,7 @@ public class InterviewServiceImpl implements InterviewService {
 
 
         // -----------------------------------------------------
-        // UPDATE STUDENT STATUS
+        // UPDATE STUDENT & APPLICATION STATUS
         // -----------------------------------------------------
 
         Student student =
@@ -420,13 +457,16 @@ public class InterviewServiceImpl implements InterviewService {
                         interview.getStudentId())
                         .orElse(null);
 
-        if (student != null) {
+        Optional<Application> appOpt = applicationRepository.findById(interview.getStudentId())
+                .or(() -> applicationRepository.findByApplicationNumber(interview.getStudentId()))
+                .or(() -> student != null ? applicationRepository.findByEmail(student.getEmail()) : Optional.empty());
 
-            updateStudentSelectionStatus(
-                    student,
-                    interviewType,
-                    status);
-        }
+        updateStudentSelectionStatus(
+                student,
+                interviewType,
+                status,
+                interview.getRemarks(),
+                appOpt);
 
         return interviewMapper.toResponse(
                 updatedInterview);
@@ -513,77 +553,126 @@ public class InterviewServiceImpl implements InterviewService {
 
     private void validateSelectionStage(
             Student student,
+            Application application,
             String interviewType) {
 
-        SelectionStatus currentStatus =
-                student.getSelectionStatus();
-
         if ("TECHNICAL".equals(interviewType)) {
-
-            if (currentStatus
-                    != SelectionStatus.TECHNICAL_PENDING) {
-
-                throw new IllegalStateException(
-                        "Student is not eligible for "
-                                + "technical interview. Current status: "
-                                + currentStatus);
+            if (application != null) {
+                ApplicationStatus appStatus = application.getStatus();
+                if (appStatus == ApplicationStatus.TECHNICAL_INTERVIEW_PASSED
+                        || appStatus == ApplicationStatus.TECHNICAL_INTERVIEW_FAILED
+                        || appStatus == ApplicationStatus.HR_INTERVIEW_PASSED
+                        || appStatus == ApplicationStatus.HR_INTERVIEW_FAILED
+                        || appStatus == ApplicationStatus.HOME_VISIT_PENDING
+                        || appStatus == ApplicationStatus.HOME_VISIT_COMPLETED
+                        || appStatus == ApplicationStatus.HOME_VISIT_PASSED
+                        || appStatus == ApplicationStatus.SELECTED
+                        || appStatus == ApplicationStatus.BATCH_ASSIGNED) {
+                    throw new IllegalStateException("Technical interview has already been evaluated for this candidate.");
+                }
+                if (appStatus != ApplicationStatus.DOCUMENTS_VERIFIED
+                        && appStatus != ApplicationStatus.TECHNICAL_INTERVIEW_SCHEDULED) {
+                    throw new IllegalStateException(
+                            "Candidate is not eligible for technical interview. Current status: " + appStatus + ". Documents must be verified first.");
+                }
+            } else if (student != null) {
+                SelectionStatus currentStatus = student.getSelectionStatus();
+                if (currentStatus != SelectionStatus.TECHNICAL_PENDING) {
+                    throw new IllegalStateException(
+                            "Student is not eligible for technical interview. Current status: " + currentStatus);
+                }
             }
-        }
-
-        else if ("SOFT_SKILL".equals(interviewType)) {
-
-            if (currentStatus
-                    != SelectionStatus.SOFT_SKILL_PENDING) {
-
-                throw new IllegalStateException(
-                        "Student is not eligible for "
-                                + "soft-skill interview. Current status: "
-                                + currentStatus);
+        } else if ("SOFT_SKILL".equals(interviewType)) {
+            if (application != null) {
+                ApplicationStatus appStatus = application.getStatus();
+                if (appStatus == ApplicationStatus.HR_INTERVIEW_PASSED
+                        || appStatus == ApplicationStatus.HR_INTERVIEW_FAILED
+                        || appStatus == ApplicationStatus.HOME_VISIT_PENDING
+                        || appStatus == ApplicationStatus.HOME_VISIT_COMPLETED
+                        || appStatus == ApplicationStatus.HOME_VISIT_PASSED
+                        || appStatus == ApplicationStatus.SELECTED
+                        || appStatus == ApplicationStatus.BATCH_ASSIGNED) {
+                    throw new IllegalStateException("Soft-Skill / HR interview has already been evaluated for this candidate.");
+                }
+                if (appStatus != ApplicationStatus.TECHNICAL_INTERVIEW_PASSED
+                        && appStatus != ApplicationStatus.HR_INTERVIEW_SCHEDULED) {
+                    throw new IllegalStateException(
+                            "Candidate must pass Technical Interview before taking Soft-Skill/HR Interview. Current status: " + appStatus);
+                }
+            } else if (student != null) {
+                SelectionStatus currentStatus = student.getSelectionStatus();
+                if (currentStatus != SelectionStatus.SOFT_SKILL_PENDING) {
+                    throw new IllegalStateException(
+                            "Student is not eligible for soft-skill interview. Current status: " + currentStatus);
+                }
             }
-        }
-
-        else {
+        } else {
             throw new IllegalArgumentException(
-                    "Invalid interview type: "
-                            + interviewType);
+                    "Invalid interview type: " + interviewType);
         }
     }
 
 
     // =========================================================
-    // UPDATE STUDENT SELECTION STATUS
+    // UPDATE STUDENT & APPLICATION SELECTION STATUS
     // =========================================================
 
     private void updateStudentSelectionStatus(
             Student student,
             String interviewType,
-            String status) {
+            String status,
+            String remarks,
+            Optional<Application> appOpt) {
 
         // Interview failed
         if ("REJECTED".equals(status)) {
-
-            student.setSelectionStatus(
-                    SelectionStatus.REJECTED);
+            if (student != null) {
+                student.setSelectionStatus(SelectionStatus.REJECTED);
+            }
+            if (appOpt != null && appOpt.isPresent()) {
+                Application app = appOpt.get();
+                if ("TECHNICAL".equals(interviewType)) {
+                    app.setStatus(ApplicationStatus.TECHNICAL_INTERVIEW_FAILED);
+                    app.setTechnicalInterviewRemarks(remarks);
+                } else if ("SOFT_SKILL".equals(interviewType)) {
+                    app.setStatus(ApplicationStatus.HR_INTERVIEW_FAILED);
+                    app.setHrInterviewRemarks(remarks);
+                }
+                app.setUpdatedAt(LocalDateTime.now());
+                applicationRepository.save(app);
+            }
         }
-
         // Technical interview passed
         else if ("TECHNICAL".equals(interviewType)) {
-
-            student.setSelectionStatus(
-                    SelectionStatus.SOFT_SKILL_PENDING);
+            if (student != null) {
+                student.setSelectionStatus(SelectionStatus.SOFT_SKILL_PENDING);
+            }
+            if (appOpt != null && appOpt.isPresent()) {
+                Application app = appOpt.get();
+                app.setStatus(ApplicationStatus.TECHNICAL_INTERVIEW_PASSED);
+                app.setTechnicalInterviewRemarks(remarks);
+                app.setUpdatedAt(LocalDateTime.now());
+                applicationRepository.save(app);
+            }
         }
-
         // Soft skill interview passed
         else if ("SOFT_SKILL".equals(interviewType)) {
-
-            student.setSelectionStatus(
-                    SelectionStatus.DOCUMENT_VERIFICATION_PENDING);
+            if (student != null) {
+                student.setSelectionStatus(SelectionStatus.HOME_VISIT_PENDING);
+            }
+            if (appOpt != null && appOpt.isPresent()) {
+                Application app = appOpt.get();
+                app.setStatus(ApplicationStatus.HR_INTERVIEW_PASSED);
+                app.setHrInterviewRemarks(remarks);
+                app.setUpdatedAt(LocalDateTime.now());
+                applicationRepository.save(app);
+            }
         }
 
-        student.setUpdatedAt(
-                LocalDateTime.now());
-
-        studentRepository.save(student);
+        if (student != null) {
+            student.setUpdatedAt(LocalDateTime.now());
+            studentRepository.save(student);
+        }
     }
 
 
@@ -675,13 +764,52 @@ public class InterviewServiceImpl implements InterviewService {
 
     @Override
     public List<ApplicationResponse> getEligibleInterviewCandidates(String trainerEmail) {
-        log.info("Fetching eligible interview candidates for trainer: '{}'", trainerEmail);
+        return getEligibleInterviewCandidates(trainerEmail, null);
+    }
+
+    @Override
+    public List<ApplicationResponse> getEligibleInterviewCandidates(String trainerEmail, String stage) {
+        log.info("Fetching eligible interview candidates for trainer: '{}', stage: '{}'", trainerEmail, stage);
+        User trainer = null;
+        if (trainerEmail != null && !trainerEmail.isBlank()) {
+            trainer = userRepository.findByEmail(trainerEmail)
+                    .or(() -> userRepository.findById(trainerEmail))
+                    .orElse(null);
+        }
+
+        TrainerType trainerType = (trainer != null) ? trainer.getTrainerType() : null;
+        if (stage != null && !stage.isBlank()) {
+            if ("SOFT_SKILL".equalsIgnoreCase(stage) || "HR".equalsIgnoreCase(stage)) {
+                trainerType = TrainerType.SOFT_SKILLS;
+            } else if ("TECHNICAL".equalsIgnoreCase(stage)) {
+                trainerType = TrainerType.TECHNICAL;
+            }
+        }
+
+        final TrainerType effectiveType = trainerType;
+
         List<Application> allApps = applicationRepository.findAll();
         if (allApps.isEmpty()) {
             return Collections.emptyList();
         }
 
         return allApps.stream()
+                .filter(app -> {
+                    if (app.getStatus() == null) return false;
+                    if (effectiveType == TrainerType.SOFT_SKILLS) {
+                        return app.getStatus() == ApplicationStatus.TECHNICAL_INTERVIEW_PASSED
+                                || app.getStatus() == ApplicationStatus.HR_INTERVIEW_SCHEDULED;
+                    } else if (effectiveType == TrainerType.TECHNICAL) {
+                        return app.getStatus() == ApplicationStatus.DOCUMENTS_VERIFIED
+                                || app.getStatus() == ApplicationStatus.TECHNICAL_INTERVIEW_SCHEDULED;
+                    } else {
+                        // Admin or unassigned trainer
+                        return app.getStatus() == ApplicationStatus.DOCUMENTS_VERIFIED
+                                || app.getStatus() == ApplicationStatus.TECHNICAL_INTERVIEW_SCHEDULED
+                                || app.getStatus() == ApplicationStatus.TECHNICAL_INTERVIEW_PASSED
+                                || app.getStatus() == ApplicationStatus.HR_INTERVIEW_SCHEDULED;
+                    }
+                })
                 .map(this::mapApplicationToResponse)
                 .collect(Collectors.toList());
     }

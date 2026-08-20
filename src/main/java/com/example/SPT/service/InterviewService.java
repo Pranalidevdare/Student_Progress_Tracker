@@ -16,4 +16,6 @@ public interface InterviewService {
 
     List<ApplicationResponse> getEligibleInterviewCandidates(String trainerEmail);
 
+    List<ApplicationResponse> getEligibleInterviewCandidates(String trainerEmail, String stage);
+
 }

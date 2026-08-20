@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { conductInterview } from '../api/interviewApi';
+import { conductInterview, getTrainerInterviewCandidates } from '../api/interviewApi';
 import { applicationApi } from '../api/apiServices';
 import { Award, Search, CheckCircle2, Star, User, AlertCircle, Save, Check, X, Filter, RefreshCw, UserCheck, ShieldAlert } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -10,9 +10,15 @@ export default function Interviews() {
   const trainerId = user?.id || user?.email || localStorage.getItem('trainerId') || '';
   const defaultBatchId = user?.batchId || user?.batch || localStorage.getItem('batchId') || null;
   
-  // Trainer Role Type: 'TECHNICAL' or 'SOFT_SKILLS'
-  const isSoftSkillTrainer = user?.trainerType === 'SOFT_SKILLS' || user?.role?.includes('HR');
-  const requiredTargetStatus = isSoftSkillTrainer ? 'TECHNICAL_INTERVIEW_PASSED' : 'DOCUMENTS_VERIFIED';
+  // Role & Trainer Type Detection
+  const isAdmin = String(user?.role || '').toUpperCase().includes('ADMIN');
+  const isSoftSkillTrainer = !isAdmin && (user?.trainerType === 'SOFT_SKILLS' || user?.role?.includes('HR'));
+  const isTechnicalTrainer = !isAdmin && !isSoftSkillTrainer;
+
+  // Active Stage locked strictly by role unless Admin
+  const [activeStage, setActiveStage] = useState(
+    isAdmin ? 'TECHNICAL' : (isSoftSkillTrainer ? 'SOFT_SKILL' : 'TECHNICAL')
+  );
 
   const [eligibleCandidates, setEligibleCandidates] = useState([]);
   const [allCandidates, setAllCandidates] = useState([]);
@@ -46,25 +52,32 @@ export default function Interviews() {
       window.removeEventListener('spt_data_updated', handleSync);
       window.removeEventListener('storage', handleSync);
     };
-  }, [requiredTargetStatus]);
+  }, [activeStage]);
 
   const fetchEligibleQueue = async () => {
     setLoadingCandidates(true);
     setHasError(false);
     try {
-      const res = await applicationApi.getAll();
+      // Use dedicated trainer interview endpoint authorized for TRAINER and ADMIN
+      const res = await getTrainerInterviewCandidates(activeStage);
       const apps = Array.isArray(res.data) ? res.data : [];
       setAllCandidates(apps);
 
-      // Filter candidates ready for this interview stage
-      const targetFiltered = apps.filter(a =>
-        a.status === requiredTargetStatus ||
-        a.status === 'DOCUMENTS_VERIFIED' ||
-        a.status === 'DOCUMENTS_SUBMITTED' ||
-        (isSoftSkillTrainer ? a.status === 'TECHNICAL_INTERVIEW_PASSED' : false)
-      );
+      // Filter candidates strictly ready for this interview stage
+      let targetFiltered = [];
+      if (activeStage === 'SOFT_SKILL') {
+        targetFiltered = apps.filter(a =>
+          a.status === 'TECHNICAL_INTERVIEW_PASSED' ||
+          a.status === 'HR_INTERVIEW_SCHEDULED'
+        );
+      } else {
+        targetFiltered = apps.filter(a =>
+          a.status === 'DOCUMENTS_VERIFIED' ||
+          a.status === 'TECHNICAL_INTERVIEW_SCHEDULED'
+        );
+      }
 
-      setEligibleCandidates(targetFiltered.length > 0 ? targetFiltered : apps);
+      setEligibleCandidates(targetFiltered);
     } catch (err) {
       console.error('Failed to load interview queue:', err);
       setHasError(true);
@@ -81,7 +94,7 @@ export default function Interviews() {
       ...prev,
       studentId: cand.applicationNumber || cand.id,
       batchId: cand.assignedBatchId || defaultBatchId,
-      remarks: `Interview evaluation for ${cand.fullName}`
+      remarks: `${activeStage === 'SOFT_SKILL' ? 'HR / Soft-Skill' : 'Technical'} Interview evaluation for ${cand.fullName}`
     }));
     toast.success(`Selected candidate: ${cand.fullName}`);
   };
@@ -94,15 +107,46 @@ export default function Interviews() {
       return;
     }
 
-    const found = allCandidates.find(c =>
+    // First search in eligible queue
+    const foundInQueue = eligibleCandidates.find(c =>
       (c.applicationNumber && c.applicationNumber.toLowerCase() === query) ||
       (c.id && c.id.toLowerCase() === query) ||
       (c.email && c.email.toLowerCase() === query) ||
       (c.fullName && c.fullName.toLowerCase().includes(query))
     );
 
-    if (found) {
-      handleSelectCandidate(found);
+    if (foundInQueue) {
+      handleSelectCandidate(foundInQueue);
+      return;
+    }
+
+    // Look up in all candidates to provide exact feedback
+    const foundInAll = allCandidates.find(c =>
+      (c.applicationNumber && c.applicationNumber.toLowerCase() === query) ||
+      (c.id && c.id.toLowerCase() === query) ||
+      (c.email && c.email.toLowerCase() === query) ||
+      (c.fullName && c.fullName.toLowerCase().includes(query))
+    );
+
+    if (foundInAll) {
+      if (activeStage === 'TECHNICAL') {
+        if (foundInAll.status === 'TECHNICAL_INTERVIEW_PASSED' || foundInAll.status === 'TECHNICAL_INTERVIEW_FAILED') {
+          toast.error(`Candidate ${foundInAll.fullName} has already completed Technical Interview (${foundInAll.status}).`);
+        } else if (foundInAll.status !== 'DOCUMENTS_VERIFIED' && foundInAll.status !== 'TECHNICAL_INTERVIEW_SCHEDULED') {
+          toast.error(`Candidate ${foundInAll.fullName} is not eligible for Technical Interview yet (Current status: ${foundInAll.status}). Documents must be verified first.`);
+        } else {
+          handleSelectCandidate(foundInAll);
+        }
+      } else {
+        // SOFT_SKILL
+        if (foundInAll.status === 'HR_INTERVIEW_PASSED' || foundInAll.status === 'HR_INTERVIEW_FAILED') {
+          toast.error(`Candidate ${foundInAll.fullName} has already completed Soft-Skill/HR Interview (${foundInAll.status}).`);
+        } else if (foundInAll.status !== 'TECHNICAL_INTERVIEW_PASSED' && foundInAll.status !== 'HR_INTERVIEW_SCHEDULED') {
+          toast.error(`Candidate ${foundInAll.fullName} is not eligible for Soft-Skill/HR Interview yet (Current status: ${foundInAll.status}). Must pass Technical Interview first.`);
+        } else {
+          handleSelectCandidate(foundInAll);
+        }
+      }
     } else {
       toast.error(`No candidate found for reference "${manualSearchId}".`);
     }
@@ -116,32 +160,49 @@ export default function Interviews() {
     }
     setSubmitting(true);
 
-    const nextStatus = formData.passStatus === 'PASS'
-      ? (isSoftSkillTrainer ? 'HR_INTERVIEW_PASSED' : 'TECHNICAL_INTERVIEW_PASSED')
-      : (isSoftSkillTrainer ? 'HR_INTERVIEW_FAILED' : 'TECHNICAL_INTERVIEW_FAILED');
+    const isPass = formData.passStatus === 'PASS';
+    const isSoftSkillEval = activeStage === 'SOFT_SKILL';
+    const nextStatus = isPass
+      ? (isSoftSkillEval ? 'HR_INTERVIEW_PASSED' : 'TECHNICAL_INTERVIEW_PASSED')
+      : (isSoftSkillEval ? 'HR_INTERVIEW_FAILED' : 'TECHNICAL_INTERVIEW_FAILED');
 
     const payload = {
       studentId: formData.studentId,
       trainerId: trainerId || user?.id || 'TRN101',
       batchId: formData.batchId || null,
       interviewDate: formData.interviewDate || new Date().toISOString().split('T')[0],
-      interviewType: isSoftSkillTrainer ? 'SOFT_SKILL' : 'TECHNICAL',
+      interviewType: isSoftSkillEval ? 'SOFT_SKILL' : 'TECHNICAL',
       remarks: formData.remarks?.trim() || 'Interview evaluation recorded'
     };
 
-    if (isSoftSkillTrainer) {
-      payload.softSkillMarks = Math.min(20, Math.max(0, Number(formData.softSkillMarks) || 0));
-      payload.communicationMarks = Math.min(20, Math.max(0, Number(formData.communicationMarks) || 0));
-      payload.behaviourMarks = Math.min(20, Math.max(0, Number(formData.behaviourMarks) || 0));
+    if (isSoftSkillEval) {
+      if (isPass) {
+        payload.softSkillMarks = Math.min(20, Math.max(12, Number(formData.softSkillMarks) || 15));
+        payload.communicationMarks = Math.min(20, Math.max(12, Number(formData.communicationMarks) || 15));
+        payload.behaviourMarks = Math.min(20, Math.max(12, Number(formData.behaviourMarks) || 15));
+      } else {
+        payload.softSkillMarks = Math.min(8, Number(formData.softSkillMarks) || 5);
+        payload.communicationMarks = Math.min(8, Number(formData.communicationMarks) || 5);
+        payload.behaviourMarks = Math.min(8, Number(formData.behaviourMarks) || 5);
+      }
     } else {
-      payload.technicalMarks = Math.min(40, Math.max(0, Number(formData.technicalMarks) || 0));
-      payload.problemSolvingMarks = Math.min(20, Math.max(0, Number(formData.problemSolvingMarks) || 0));
+      if (isPass) {
+        payload.technicalMarks = Math.min(40, Math.max(25, Number(formData.technicalMarks) || 30));
+        payload.problemSolvingMarks = Math.min(20, Math.max(12, Number(formData.problemSolvingMarks) || 15));
+      } else {
+        payload.technicalMarks = Math.min(15, Number(formData.technicalMarks) || 10);
+        payload.problemSolvingMarks = Math.min(8, Number(formData.problemSolvingMarks) || 5);
+      }
     }
 
     try {
       await conductInterview(payload);
-      if (selectedCandidate?.id) {
-        await applicationApi.updateStatus(selectedCandidate.id, nextStatus);
+      if (isAdmin && selectedCandidate?.id) {
+        try {
+          await applicationApi.updateStatus(selectedCandidate.id, nextStatus);
+        } catch (e) {
+          // Status updated by conductInterview in backend
+        }
       }
       toast.success(`Interview Evaluation Saved! Candidate status updated to ${nextStatus}. 🎉`);
       setSelectedCandidate(null);
@@ -160,22 +221,48 @@ export default function Interviews() {
       <div className="page-header flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="page-title">
-            {isSoftSkillTrainer ? 'Soft-Skill & HR Interview Portal' : 'Technical Interview Assessment Portal'}
+            {activeStage === 'SOFT_SKILL' ? 'Soft-Skill & HR Interview Portal' : 'Technical Interview Assessment Portal'}
           </h1>
           <p className="page-subtitle">
-            {isSoftSkillTrainer
+            {activeStage === 'SOFT_SKILL'
               ? 'Evaluating candidates who passed the Technical Interview stage'
               : 'Evaluating candidates whose documents have been verified by Admin'}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Stage switcher ONLY shown if user is Admin */}
+          {isAdmin && (
+            <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200">
+              <button
+                onClick={() => { setActiveStage('TECHNICAL'); setSelectedCandidate(null); }}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                  activeStage === 'TECHNICAL' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                1. Technical Interview
+              </button>
+              <button
+                onClick={() => { setActiveStage('SOFT_SKILL'); setSelectedCandidate(null); }}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                  activeStage === 'SOFT_SKILL' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                2. Soft-Skill / HR
+              </button>
+            </div>
+          )}
+
+          {/* Role badge for Trainer */}
+          {!isAdmin && (
+            <span className="badge-red text-xs px-3 py-2 font-bold uppercase tracking-wider">
+              {isSoftSkillTrainer ? 'SOFT-SKILL & HR INTERVIEW MODULE' : 'TECHNICAL INTERVIEW MODULE'}
+            </span>
+          )}
+
           <button onClick={fetchEligibleQueue} className="btn bg-white border text-gray-700 hover:bg-gray-50 text-xs py-2 px-3 rounded-xl flex items-center gap-1 font-bold">
             <RefreshCw size={14} /> Refresh Queue
           </button>
-          <span className="badge-red text-xs px-3 py-2 font-bold uppercase tracking-wider">
-            {isSoftSkillTrainer ? 'HR TRAINER MODULE' : 'TECHNICAL TRAINER MODULE'}
-          </span>
         </div>
       </div>
 

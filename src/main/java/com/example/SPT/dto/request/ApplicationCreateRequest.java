@@ -70,7 +70,6 @@ public class ApplicationCreateRequest {
     @NotNull(message = "ITEP selection is required")
     private Boolean interestedInITEP;
 
-    @NotNull(message = "WhatsApp group selection is required")
     private Boolean joinedWhatsappGroup;
 
     @Size(max = 500)

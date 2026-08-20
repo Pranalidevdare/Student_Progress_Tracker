@@ -21,4 +21,8 @@ public interface AptitudeScheduleRepository
     Optional<AptitudeSchedule> findByTestIdAndStatus(
             String testId,
             String status);
+
+    Optional<AptitudeSchedule> findTopByOrderByCreatedAtDesc();
+
+    Optional<AptitudeSchedule> findTopByStatusOrderByCreatedAtDesc(String status);
 }

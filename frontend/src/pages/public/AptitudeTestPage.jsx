@@ -7,10 +7,8 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import SendIcon from '@mui/icons-material/Send';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import LockIcon from '@mui/icons-material/Lock';
-import EventAvailableIcon from '@mui/icons-material/EventAvailable';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import toast from 'react-hot-toast';
-import { aptitudeApi, applicationApi } from '../../api/apiServices';
+import { aptitudeApi } from '../../api/apiServices';
 import { Link, useNavigate } from 'react-router-dom';
 
 const DEFAULT_QUESTIONS = [];
@@ -23,21 +21,29 @@ export default function AptitudeTestPage() {
   const [questions, setQuestions] = useState(DEFAULT_QUESTIONS);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState({});
-  const [timeLeft, setTimeLeft] = useState(900); // 15 minutes
+  const [timeLeft, setTimeLeft] = useState(1800); // 30 minutes
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [scheduleVerified, setScheduleVerified] = useState(false);
+  const [alreadyAttempted, setAlreadyAttempted] = useState(false);
+  const [alreadyAttemptedResult, setAlreadyAttemptedResult] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [scheduleInfo, setScheduleInfo] = useState(null);
+  const [countdown, setCountdown] = useState(0);
 
   const resetAptitudeProgress = (keepCandidate = false) => {
     setTestStarted(false);
     setQuestions(DEFAULT_QUESTIONS);
     setCurrentIndex(0);
     setAnswers({});
-    setTimeLeft(900);
+    setTimeLeft(1800);
     setSubmitted(false);
     setScore(null);
-    setScheduleVerified(false);
+    setAlreadyAttempted(false);
+    setAlreadyAttemptedResult(null);
+    setErrorMessage('');
+    setScheduleInfo(null);
+    setCountdown(0);
 
     if (!keepCandidate) {
       setCandidateId('');
@@ -47,72 +53,11 @@ export default function AptitudeTestPage() {
   };
 
   useEffect(() => {
-    const restoreSavedState = async () => {
-      try {
-        const saved = JSON.parse(sessionStorage.getItem(APTITUDE_STORAGE_KEY) || 'null');
-        if (!saved) return;
-
-        setCandidateId(saved.candidateId || '');
-        setTestStarted(Boolean(saved.testStarted));
-        setQuestions(Array.isArray(saved.questions) ? saved.questions : DEFAULT_QUESTIONS);
-        setCurrentIndex(Number.isInteger(saved.currentIndex) ? saved.currentIndex : 0);
-        setAnswers(saved.answers || {});
-        setTimeLeft(Number.isFinite(saved.timeLeft) ? saved.timeLeft : 900);
-        setSubmitted(Boolean(saved.submitted));
-        setScore(saved.score ?? null);
-        setScheduleVerified(Boolean(saved.scheduleVerified));
-
-        const currentCandidateId = String(saved.candidateId || '').trim();
-        if (currentCandidateId && (Boolean(saved.submitted) || Boolean(saved.testStarted))) {
-          try {
-            const res = await applicationApi.getByAppNumber(currentCandidateId);
-            const currentStatus = String(res?.data?.status || '');
-
-            if (currentStatus === 'APTITUDE_PASSED') {
-              resetAptitudeProgress(true);
-              setCandidateId(currentCandidateId);
-              sessionStorage.removeItem(APTITUDE_STORAGE_KEY);
-              window.location.assign(`/documentation?candidateId=${encodeURIComponent(currentCandidateId)}`);
-              return;
-            }
-
-            if (currentStatus === 'APTITUDE_SCHEDULED') {
-              resetAptitudeProgress(true);
-              setCandidateId(currentCandidateId);
-            }
-          } catch (err) {
-            console.warn('Unable to validate aptitude state against backend', err);
-          }
-        }
-      } catch (err) {
-        console.warn('Unable to restore aptitude state', err);
-      }
-    };
-
-    restoreSavedState();
+    // Clear any previous aptitude session cache on mount so that Application ID entry page ALWAYS appears
+    sessionStorage.removeItem(APTITUDE_STORAGE_KEY);
   }, []);
 
-  useEffect(() => {
-    const payload = {
-      candidateId,
-      testStarted,
-      questions,
-      currentIndex,
-      answers,
-      timeLeft,
-      submitted,
-      score,
-      scheduleVerified
-    };
-
-    if (!candidateId && !testStarted && !scheduleVerified && !submitted && questions.length === 0) {
-      sessionStorage.removeItem(APTITUDE_STORAGE_KEY);
-      return;
-    }
-
-    sessionStorage.setItem(APTITUDE_STORAGE_KEY, JSON.stringify(payload));
-  }, [candidateId, testStarted, questions, currentIndex, answers, timeLeft, submitted, score, scheduleVerified]);
-
+  // Live Exam Test Timer
   useEffect(() => {
     let timer;
     if (testStarted && !submitted && timeLeft > 0) {
@@ -129,88 +74,40 @@ export default function AptitudeTestPage() {
     return () => clearInterval(timer);
   }, [testStarted, submitted, timeLeft]);
 
-  const handleVerifySchedule = async (e) => {
-    if (e) e.preventDefault();
-    if (!candidateId.trim()) {
-      toast.error('Please enter your Application Reference ID');
-      return;
+  // Live Countdown Timer to Exam Start Time
+  useEffect(() => {
+    let timer;
+    if (scheduleInfo?.scheduled && !scheduleInfo?.canStart && countdown > 0) {
+      timer = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            setScheduleInfo(curr => curr ? { ...curr, canStart: true } : null);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     }
+    return () => clearInterval(timer);
+  }, [scheduleInfo?.scheduled, scheduleInfo?.canStart, countdown]);
 
+  const startExamSession = async (candidateIdClean, preloadedDuration = null) => {
     setLoading(true);
     try {
-      const res = await applicationApi.getByAppNumber(candidateId.trim());
-      const app = res.data;
-      if (!app) {
-        resetAptitudeProgress(true);
-        setScheduleVerified(false);
-        toast.error('Invalid application/reference ID');
-        return;
-      }
+      // Start/Resume attempt in backend
+      const startRes = await aptitudeApi.startTest(candidateIdClean);
+      const attemptData = startRes.data || {};
 
-      const currentStatus = String(app?.status || '');
-
-      if (currentStatus === 'APTITUDE_PASSED') {
-        resetAptitudeProgress(true);
-        setScheduleVerified(false);
-        sessionStorage.removeItem(APTITUDE_STORAGE_KEY);
-        toast.success('Aptitude already passed. Redirecting to document upload.');
-        window.location.assign(`/documentation?candidateId=${encodeURIComponent(candidateId.trim())}`);
-        return;
-      }
-
-      if (currentStatus !== 'APTITUDE_SCHEDULED') {
-        resetAptitudeProgress(true);
-        setScheduleVerified(false);
-        toast.error('This application is not scheduled for an aptitude test');
-        return;
-      }
-
-      setTestStarted(false);
-      setSubmitted(false);
-      setScore(null);
-      setQuestions(DEFAULT_QUESTIONS);
-      setCurrentIndex(0);
-      setAnswers({});
-      setTimeLeft(900);
-      sessionStorage.removeItem(APTITUDE_STORAGE_KEY);
-      setScheduleVerified(true);
-      toast.success('Exam Schedule Verified! Click "Begin Aptitude Now" to start your exam.');
-    } catch (err) {
-      console.error('Schedule verification error', err);
-      setScheduleVerified(false);
-      toast.error('Unable to verify schedule. Please contact support.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStartExam = async () => {
-    if (!candidateId.trim()) {
-      toast.error('Please enter your Application Reference ID');
-      return;
-    }
-
-    if (!scheduleVerified) {
-      toast.error('Please verify your exam schedule first');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Request backend to create/start an aptitude attempt
-      const res = await aptitudeApi.startTest(candidateId.trim());
-      const result = res.data;
-
-      // Fetch questions from backend
+      // Fetch Active Questions
       const qRes = await aptitudeApi.getQuestions();
       const serverQuestions = qRes.data || [];
 
       if (serverQuestions.length === 0) {
+        setErrorMessage('No active aptitude questions available. Please contact administrator.');
         toast.error('No active aptitude questions available');
         return;
       }
 
-      // Map backend question shape to local shape
       const mapped = serverQuestions.map((q) => ({
         id: q.id,
         text: q.question,
@@ -218,16 +115,83 @@ export default function AptitudeTestPage() {
       }));
 
       setQuestions(mapped.length ? mapped : DEFAULT_QUESTIONS);
-
-      // Set duration to server-side duration (30 minutes) to avoid premature expiry
-      setTimeLeft(30 * 60);
-
-      // Save assessmentId for submit
+      setCurrentIndex(0);
+      setAnswers({});
+      
+      const secondsLeft = attemptData.remainingSeconds != null
+        ? attemptData.remainingSeconds
+        : (preloadedDuration != null ? preloadedDuration : 1800);
+      setTimeLeft(secondsLeft);
       setTestStarted(true);
       toast.success('Aptitude Exam started!');
     } catch (err) {
-      console.error('Start exam error', err);
-      toast.error('Unable to start exam. Please contact support.');
+      console.error('Start exam session error', err);
+      const errMsg = err?.response?.data?.message || err?.message || 'Failed to start examination.';
+      setErrorMessage(errMsg);
+      toast.error(errMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle Application ID Verification & Continuing to Exam
+  const handleVerifyAndContinue = async (e) => {
+    if (e) e.preventDefault();
+    const candidateIdClean = candidateId.trim();
+    if (!candidateIdClean) {
+      setErrorMessage('Please enter your Application ID.');
+      toast.error('Please enter your Application ID');
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage('');
+    setAlreadyAttempted(false);
+    setAlreadyAttemptedResult(null);
+    setScheduleInfo(null);
+    setCountdown(0);
+
+    try {
+      // 1. Verify Application ID & Admin Schedule & Previous Attempt
+      const res = await aptitudeApi.checkEligibility(candidateIdClean);
+      const data = res.data;
+
+      // 2. Check if already attempted
+      if (data.alreadyAttempted) {
+        setTestStarted(false);
+        setAlreadyAttempted(true);
+        setAlreadyAttemptedResult(data.previousResult);
+        toast.error('You have already given the aptitude test.');
+        return;
+      }
+
+      // 3. Check if scheduled for a future time
+      if (data.scheduled && !data.canStart) {
+        setTestStarted(false);
+        setScheduleInfo(data);
+        setCountdown(data.remainingSecondsToStart || 0);
+        return;
+      }
+
+      // 4. Check if eligible to start
+      if (!data.eligible && !data.canStart) {
+        setTestStarted(false);
+        const errMsg = data.message || 'Aptitude test has not been scheduled yet. Please wait for the administrator to schedule your test.';
+        setErrorMessage(errMsg);
+        toast.error(errMsg);
+        return;
+      }
+
+      // 5. Start / Resume Exam directly
+      await startExamSession(candidateIdClean, data.remainingSecondsForExam);
+    } catch (err) {
+      console.error('Application verification error', err);
+      let errMsg = err?.response?.data?.message || err?.message || 'Unable to verify Application ID. Please try again.';
+      if (err?.response?.status === 404 || errMsg.toLowerCase().includes('not found')) {
+        errMsg = 'Application ID not found. Please enter a valid Application ID.';
+      }
+      setErrorMessage(errMsg);
+      toast.error(errMsg);
     } finally {
       setLoading(false);
     }
@@ -261,7 +225,8 @@ export default function AptitudeTestPage() {
       navigate(`/result?candidateId=${encodeURIComponent(candidateId.trim())}`);
     } catch (err) {
       console.error('Submit test error', err);
-      toast.error('Failed to submit exam. Please try again or contact support.');
+      const errMsg = err?.response?.data?.message || 'Failed to submit exam. Please try again or contact support.';
+      toast.error(errMsg);
     } finally {
       setLoading(false);
     }
@@ -285,84 +250,146 @@ export default function AptitudeTestPage() {
           </Button>
         </Box>
 
+        {/* 1. APPLICATION ID ENTRY / VERIFICATION PAGE */}
         {!testStarted ? (
           <Paper elevation={0} sx={{ p: { xs: 3, sm: 5 }, borderRadius: 3, border: '1px solid #e2e8f0', background: '#fff', textAlign: 'center' }}>
             <Typography variant="h4" sx={{ fontWeight: 800, color: '#0f172a', mb: 1, textAlign: 'center' }}>
-              Online Aptitude Examination Portal
+              Aptitude Test
             </Typography>
-            <Typography variant="body2" sx={{ color: '#64748b', mb: 4, maxWidth: 500, mx: 'auto', textAlign: 'center' }}>
-              Enter your Application Reference ID to verify your admin-scheduled exam slot and start your 15-minute aptitude test.
+            <Typography variant="body1" sx={{ color: '#64748b', mb: 4, maxWidth: 500, mx: 'auto', textAlign: 'center' }}>
+              Enter your Application ID to continue.
             </Typography>
 
-              <Box component="form" onSubmit={handleVerifySchedule} sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 480, mx: 'auto', textAlign: 'center', alignItems: 'center' }}>
-              <input
-                type="text"
-                required
-                placeholder="Enter Application Reference ID (e.g. APP7076)"
-                value={candidateId}
-                onChange={(e) => {
-                  const nextValue = e.target.value;
-                  if (nextValue !== candidateId) {
-                    resetAptitudeProgress(true);
-                    setCandidateId(nextValue);
-                  }
-                  setScheduleVerified(false);
-                }}
-                className="form-input"
-                style={{ padding: '14px 18px', fontSize: '1rem', textAlign: 'center', fontWeight: 600, width: '100%' }}
-              />
+            <Box component="form" onSubmit={handleVerifyAndContinue} sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 480, mx: 'auto', textAlign: 'center', alignItems: 'center' }}>
+              <div style={{ width: '100%', textAlign: 'left' }}>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#1e293b', marginBottom: '6px' }}>
+                  Application ID
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Enter Application ID (e.g. APP-2026-000044)"
+                  value={candidateId}
+                  onChange={(e) => {
+                    const nextValue = e.target.value;
+                    if (nextValue !== candidateId) {
+                      resetAptitudeProgress(true);
+                      setCandidateId(nextValue);
+                    }
+                  }}
+                  className="form-input"
+                  style={{ padding: '14px 18px', fontSize: '1rem', textAlign: 'left', fontWeight: 600, width: '100%', boxSizing: 'border-box' }}
+                />
+              </div>
 
-              <Box sx={{ p: 2.5, background: 'var(--primary-light)', border: `1px solid rgba(220,38,38,0.12)`, borderRadius: 2, textAlign: 'center', width: '100%' }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'var(--primary-dark)', mb: 0.5, textAlign: 'center' }}>
-                  Examination Rules & Guidelines:
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'var(--primary-dark)', display: 'block', lineHeight: 1.6, textAlign: 'center' }}>
-                  • Total Duration: 15 Minutes ({questions.length} Multiple Choice Questions)<br />
-                  • Question Format: 4 Multiple Choice Options (Radio Button)<br />
-                  • Passing Criteria: Score $\ge 40$ Points (Unlocks Document Upload Portal)
-                </Typography>
-              </Box>
+              {alreadyAttempted && (
+                <Box sx={{ width: '100%', textAlign: 'left' }}>
+                  <Alert severity="info" icon={<LockIcon />} sx={{ textAlign: 'left', mb: 2, borderRadius: 2 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                      You have already given the aptitude test.
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontSize: '0.875rem', color: '#1e293b' }}>
+                      A completed aptitude test submission exists for Application ID: <strong>{candidateId}</strong>. Candidates cannot re-attempt the test.
+                    </Typography>
+                  </Alert>
 
-              {scheduleVerified && (
-                <Alert severity="success" icon={<EventAvailableIcon />} sx={{ textAlign: 'center', justifyContent: 'center', width: '100%' }}>
-                  Exam Schedule Verified for <strong>{candidateId}</strong>! Slot is ACTIVE.
+                  {alreadyAttemptedResult && (
+                    <Card sx={{ p: 2.5, background: alreadyAttemptedResult.status === 'PASS' ? '#f0fdf4' : '#fef2f2', border: `1px solid ${alreadyAttemptedResult.status === 'PASS' ? '#bbf7d0' : '#fecaca'}`, borderRadius: 2, textAlign: 'center', mb: 2 }}>
+                      <Typography variant="subtitle2" sx={{ color: '#64748b', fontWeight: 600 }}>
+                        Your Saved Score
+                      </Typography>
+                      <Typography variant="h4" sx={{ fontWeight: 800, color: alreadyAttemptedResult.status === 'PASS' ? 'var(--success-dark)' : 'var(--primary-dark)', my: 0.5 }}>
+                        {alreadyAttemptedResult.marksObtained ?? 0} / {alreadyAttemptedResult.totalMarks ?? 0}
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700, color: alreadyAttemptedResult.status === 'PASS' ? 'var(--success)' : 'var(--primary-dark)' }}>
+                        Status: {alreadyAttemptedResult.status === 'PASS' ? 'PASSED (QUALIFIED FOR DOCUMENT UPLOAD)' : 'NEEDS IMPROVEMENT'}
+                      </Typography>
+                    </Card>
+                  )}
+
+                  {alreadyAttemptedResult?.status === 'PASS' && (
+                    <Button
+                      component={Link}
+                      to={`/documentation?candidateId=${encodeURIComponent(candidateId.trim())}`}
+                      variant="contained"
+                      startIcon={<UploadFileIcon />}
+                      sx={{ background: 'var(--primary)', px: 3, py: 1.2, fontWeight: 700, borderRadius: '8px', '&:hover': { background: 'var(--primary-dark)' }, width: '100%', mb: 1 }}
+                    >
+                      Proceed to Upload Documents
+                    </Button>
+                  )}
+                </Box>
+              )}
+
+              {scheduleInfo && !scheduleInfo.canStart && (
+                <Box sx={{ width: '100%', textAlign: 'left' }}>
+                  <Alert severity="warning" icon={<TimerIcon />} sx={{ textAlign: 'left', mb: 2, borderRadius: 2, background: '#fffbeb', border: '1px solid #fde68a' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#92400e', mb: 0.5 }}>
+                      Aptitude Exam Scheduled
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontSize: '0.875rem', color: '#78350f' }}>
+                      {scheduleInfo.message || `Your exam starts on ${scheduleInfo.testDate} at ${scheduleInfo.startTime}.`}
+                    </Typography>
+                  </Alert>
+
+                  <Card sx={{ p: 3, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 2, textAlign: 'center', mb: 2 }}>
+                    <Typography variant="subtitle2" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.75rem' }}>
+                      Time Remaining Until Exam Starts
+                    </Typography>
+                    <Typography variant="h3" sx={{ fontWeight: 900, color: '#0f172a', my: 1, fontFamily: 'monospace' }}>
+                      {(() => {
+                        const totalSec = countdown > 0 ? countdown : (scheduleInfo.remainingSecondsToStart || 0);
+                        const h = Math.floor(totalSec / 3600);
+                        const m = Math.floor((totalSec % 3600) / 60);
+                        const s = totalSec % 60;
+                        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                      })()}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#64748b', display: 'block' }}>
+                      Scheduled Start Time: <strong>{scheduleInfo.startTime}</strong> (IST)
+                    </Typography>
+                  </Card>
+                </Box>
+              )}
+
+              {errorMessage && !alreadyAttempted && (
+                <Alert severity="error" icon={<LockIcon />} sx={{ textAlign: 'left', width: '100%', borderRadius: 2 }}>
+                  {errorMessage}
                 </Alert>
               )}
 
-              <Box sx={{ display: 'flex', gap: 2, width: '100%', justifyContent: 'center', maxWidth: 340 }}>
+              <Box sx={{ width: '100%', pt: 1 }}>
                 <Button
-                  onClick={handleVerifySchedule}
-                  variant="outlined"
-                  disabled={loading}
+                  type="submit"
+                  variant="contained"
+                  disabled={loading || (scheduleInfo && !scheduleInfo.canStart)}
+                  startIcon={scheduleInfo && !scheduleInfo.canStart ? <LockIcon /> : null}
                   sx={{
-                    borderRadius: '50px',
+                    borderRadius: '8px',
                     px: 4,
                     py: 1.4,
-                    fontWeight: 800,
-                    width: '50%'
+                    fontWeight: 700,
+                    fontSize: '1rem',
+                    textTransform: 'none',
+                    background: (scheduleInfo && scheduleInfo.canStart) ? 'var(--success, #16a34a)' : 'var(--primary, #d80202)',
+                    '&:hover': {
+                      background: (scheduleInfo && scheduleInfo.canStart) ? 'var(--success-dark, #15803d)' : 'var(--primary-dark, #b70000)',
+                    },
+                    '&.Mui-disabled': {
+                      background: '#e2e8f0',
+                      color: '#94a3b8',
+                    },
+                    width: '100%',
+                    boxShadow: 'none',
                   }}
                 >
-                  {loading ? 'Verifying...' : 'Verify Schedule'}
-                </Button>
-
-                <Button
-                  onClick={handleStartExam}
-                  variant="contained"
-                  size="large"
-                  startIcon={<PlayArrowIcon />}
-                  disabled={!scheduleVerified || loading}
-                  sx={{
-                    background: 'var(--primary)',
-                    '&:hover': { background: 'var(--primary-dark)' },
-                    py: 1.6, px: 5,
-                    fontWeight: 800,
-                    fontSize: '1.05rem',
-                    borderRadius: '50px',
-                    width: '50%',
-                    boxShadow: '0 10px 20px rgba(220,38,38,0.25)'
-                  }}
-                >
-                  Begin Aptitude Now
+                  {loading
+                    ? 'Verifying...'
+                    : (scheduleInfo && !scheduleInfo.canStart)
+                    ? `Exam Starts at ${scheduleInfo.startTime || 'Scheduled Time'}`
+                    : (scheduleInfo && scheduleInfo.canStart)
+                    ? 'START EXAM'
+                    : 'Continue'}
                 </Button>
               </Box>
             </Box>
@@ -379,7 +406,7 @@ export default function AptitudeTestPage() {
               Candidate ID: <strong>{candidateId}</strong>
             </Typography>
 
-              <Card sx={{ p: 3, maxWidth: 380, mx: 'auto', background: isPassed ? '#f0fdf4' : 'var(--primary-light)', border: `1px solid ${isPassed ? '#bbf7d0' : 'rgba(220,38,38,0.12)'}`, mb: 4, textAlign: 'center' }}>
+            <Card sx={{ p: 3, maxWidth: 380, mx: 'auto', background: isPassed ? '#f0fdf4' : 'var(--primary-light)', border: `1px solid ${isPassed ? '#bbf7d0' : 'rgba(220,38,38,0.12)'}`, mb: 4, textAlign: 'center' }}>
               <Typography variant="h3" sx={{ fontWeight: 800, color: isPassed ? 'var(--success-dark)' : 'var(--primary-dark)', textAlign: 'center' }}>
                 {score} / {questions.length * 10}
               </Typography>
@@ -412,11 +439,12 @@ export default function AptitudeTestPage() {
             )}
           </Paper>
         ) : (
+          /* 2. EXISTING APTITUDE TEST MODULE (Questions, Timer, Radio Options, Navigation & Submit) */
           <Box>
             {/* Exam Header with Live Countdown Timer */}
             <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}>
               <Box>
-                <Typography variant="subtitle2" sx={{ color: '#64748b' }}>Candidate Reference ID: <strong>{candidateId}</strong></Typography>
+                <Typography variant="subtitle2" sx={{ color: '#64748b' }}>Application ID: <strong>{candidateId}</strong></Typography>
                 <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f172a' }}>
                   Question {currentIndex + 1} of {questions.length}
                 </Typography>
@@ -437,76 +465,77 @@ export default function AptitudeTestPage() {
               />
             </Paper>
 
-            {/* Question Card with 4 Radio Options */}
-            <Paper elevation={0} sx={{ p: { xs: 3, sm: 4 }, borderRadius: 3, border: '1px solid #e2e8f0', background: '#fff', mb: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b', mb: 3 }}>
-                Q{currentIndex + 1}. {currentQ.text}
-              </Typography>
+            {/* Current Question Body Card */}
+            {currentQ && (
+              <Paper elevation={0} sx={{ p: 4, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0', background: '#fff' }}>
+                <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '1.15rem', color: '#1e293b', mb: 3 }}>
+                  {currentIndex + 1}. {currentQ.text}
+                </Typography>
 
-              <FormControl component="fieldset" fullWidth>
-                <RadioGroup
-                  value={answers[currentQ.id] ?? ''}
-                  onChange={(e) => handleOptionChange(currentQ.id, e.target.value)}
-                >
-                  {currentQ.options.map((opt, idx) => {
-                    const optionLetter = String.fromCharCode(65 + idx);
+                <FormControl component="fieldset" sx={{ width: '100%' }}>
+                  <RadioGroup
+                    value={answers[currentQ.id] || ''}
+                    onChange={(e) => handleOptionChange(currentQ.id, e.target.value)}
+                  >
+                    {currentQ.options.map((opt, oIdx) => {
+                      const letter = ['A', 'B', 'C', 'D'][oIdx];
+                      const isSelected = answers[currentQ.id] === letter;
+                      return (
+                        <Paper
+                          key={oIdx}
+                          variant="outlined"
+                          onClick={() => handleOptionChange(currentQ.id, letter)}
+                          sx={{
+                            p: 2, mb: 2, borderRadius: 2, cursor: 'pointer',
+                            borderColor: isSelected ? 'var(--primary)' : '#e2e8f0',
+                            background: isSelected ? 'var(--primary-light)' : '#fff',
+                            '&:hover': { borderColor: 'var(--primary)', background: '#fafafa' }
+                          }}
+                        >
+                          <FormControlLabel
+                            value={letter}
+                            control={<Radio sx={{ color: 'var(--primary)', '&.Mui-checked': { color: 'var(--primary)' } }} />}
+                            label={<Typography sx={{ fontWeight: isSelected ? 700 : 500, color: '#334155' }}><strong>{letter}.</strong> {opt}</Typography>}
+                            sx={{ width: '100%', m: 0 }}
+                          />
+                        </Paper>
+                      );
+                    })}
+                  </RadioGroup>
+                </FormControl>
+              </Paper>
+            )}
 
-                    return (
-                      <Paper
-                        key={idx}
-                        elevation={0}
-                        onClick={() => handleOptionChange(currentQ.id, optionLetter)}
-                        sx={{
-                          p: 1.8, px: 2.5, mb: 1.5, borderRadius: 2.5,
-                          border: '2px solid',
-                          borderColor: answers[currentQ.id] === optionLetter ? 'var(--primary)' : '#e2e8f0',
-                          background: answers[currentQ.id] === optionLetter ? 'var(--primary-light)' : '#fff',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        <FormControlLabel
-                          value={optionLetter}
-                          control={<Radio color="error" />}
-                          label={<Typography sx={{ fontWeight: 600, color: '#1e293b' }}>{optionLetter}. {opt}</Typography>}
-                          sx={{ width: '100%', m: 0 }}
-                        />
-                      </Paper>
-                    );
-                  })}
-                </RadioGroup>
-              </FormControl>
-            </Paper>
-
-            {/* Bottom Navigation Controls: Previous, Next, Submit */}
+            {/* Bottom Question Navigation & Submit Actions */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Button
+                variant="outlined"
                 disabled={currentIndex === 0}
                 onClick={() => setCurrentIndex(prev => prev - 1)}
                 startIcon={<ArrowBackIcon />}
-                variant="outlined"
-                sx={{ borderRadius: '50px', px: 3, fontWeight: 700 }}
+                sx={{ borderRadius: '50px', px: 3 }}
               >
                 Previous
               </Button>
 
               {currentIndex < questions.length - 1 ? (
                 <Button
+                  variant="contained"
                   onClick={() => setCurrentIndex(prev => prev + 1)}
                   endIcon={<ArrowForwardIcon />}
-                  variant="contained"
-                  sx={{ background: 'var(--primary)', '&:hover': { background: 'var(--primary-dark)' }, borderRadius: '50px', px: 4, fontWeight: 800 }}
+                  sx={{ background: 'var(--primary)', borderRadius: '50px', px: 4, '&:hover': { background: 'var(--primary-dark)' } }}
                 >
                   Next Question
                 </Button>
               ) : (
                 <Button
+                  variant="contained"
+                  disabled={loading}
                   onClick={handleSubmitTest}
                   endIcon={<SendIcon />}
-                  variant="contained"
-                  sx={{ background: 'var(--success)', '&:hover': { background: 'var(--success-dark)' }, borderRadius: '50px', px: 4, fontWeight: 800 }}
+                  sx={{ background: 'var(--success)', borderRadius: '50px', px: 4, py: 1.2, fontWeight: 800, '&:hover': { background: 'var(--success-dark)' } }}
                 >
-                  Submit Examination
+                  {loading ? 'Submitting...' : 'Submit Aptitude Exam'}
                 </Button>
               )}
             </Box>

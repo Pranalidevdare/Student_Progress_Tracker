@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.SPT.dto.request.AptitudeSubmitRequest;
+import com.example.SPT.dto.response.AptitudeEligibilityResponse;
 import com.example.SPT.dto.response.AptitudeQuestionResponse;
 import com.example.SPT.dto.response.AptitudeResultResponse;
 import com.example.SPT.service.AptitudeService;
@@ -26,6 +27,21 @@ import lombok.RequiredArgsConstructor;
 public class AptitudeController {
 
     private final AptitudeService aptitudeService;
+
+
+    // =========================================================
+    // CHECK ELIGIBILITY & ATTEMPT STATUS
+    // =========================================================
+
+    @GetMapping("/eligibility/{candidateId}")
+    public ResponseEntity<AptitudeEligibilityResponse> checkEligibility(
+            @PathVariable String candidateId) {
+
+        AptitudeEligibilityResponse response =
+                aptitudeService.checkEligibility(candidateId);
+
+        return ResponseEntity.ok(response);
+    }
 
 
     // =========================================================

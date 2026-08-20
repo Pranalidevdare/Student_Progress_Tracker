@@ -54,6 +54,7 @@ public class StudentMapper {
                 .cgpa(student.getCgpa())
                 .selectionStatus(student.getSelectionStatus())
                 .batchId(student.getBatchId())
+                .batchName(student.getBatchName())
                 .profileImage(student.getProfileImage())
                 .active(student.getActive())
                 .build();

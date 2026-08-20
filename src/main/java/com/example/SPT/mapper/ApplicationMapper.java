@@ -27,6 +27,8 @@ public class ApplicationMapper {
                 .joinedWhatsappGroup(application.getJoinedWhatsappGroup())
                 .status(application.getStatus())
                 .adminRemarks(application.getAdminRemarks())
+                .technicalInterviewRemarks(application.getTechnicalInterviewRemarks())
+                .hrInterviewRemarks(application.getHrInterviewRemarks())
                 .assignedBatchId(application.getAssignedBatchId())
                 .assignedBatchName(application.getAssignedBatchName())
                 .createdAt(application.getCreatedAt())

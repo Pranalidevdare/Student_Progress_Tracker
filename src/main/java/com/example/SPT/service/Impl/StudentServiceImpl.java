@@ -42,6 +42,11 @@ import com.example.SPT.entity.Attendance;
 import com.example.SPT.repository.AttendanceRepository;
 import com.example.SPT.service.SequenceGeneratorService;
 import com.example.SPT.service.StudentService;
+import com.example.SPT.entity.Batch;
+import com.example.SPT.repository.BatchRepository;
+import com.example.SPT.entity.AssignmentSubmission;
+import com.example.SPT.exception.DuplicateResourceException;
+import java.util.LinkedHashMap;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -78,6 +83,8 @@ public class StudentServiceImpl implements StudentService {
 
     private final AttendanceRepository attendanceRepository;
 
+    private final BatchRepository batchRepository;
+
     private final SequenceGeneratorService sequenceGeneratorService;
 
     private final NoticeMapper noticeMapper;
@@ -107,35 +114,28 @@ public class StudentServiceImpl implements StudentService {
         }
 
         if (studentRepository.existsByEmail(request.getEmail())) {
-
-            throw new RuntimeException(
-                    "Student already exists with email: "
-                            + request.getEmail());
+            throw new DuplicateResourceException(
+                    "Student already exists with email: " + request.getEmail());
         }
 
-        Student student =
-                studentMapper.toEntity(request);
+        Student student = studentMapper.toEntity(request);
+        if (student.getStudentId() == null || student.getStudentId().isBlank()) {
+            student.setStudentId(generateNextStudentId());
+        }
+
+        if (student.getBatchId() != null && !student.getBatchId().isBlank() && batchRepository != null) {
+            batchRepository.findById(student.getBatchId())
+                    .or(() -> batchRepository.findByBatchName(student.getBatchId()))
+                    .ifPresent(b -> student.setBatchName(b.getBatchName()));
+        }
 
         student.setActive(true);
+        student.setCreatedAt(LocalDateTime.now());
+        student.setUpdatedAt(LocalDateTime.now());
 
-        /*
-         * New candidate always starts from
-         * aptitude pending.
-         */
-        student.setSelectionStatus(
-                SelectionStatus.APTITUDE_PENDING);
+        Student savedStudent = studentRepository.save(student);
 
-        LocalDateTime now =
-                LocalDateTime.now();
-
-        student.setCreatedAt(now);
-        student.setUpdatedAt(now);
-
-        Student savedStudent =
-                studentRepository.save(student);
-
-        return studentMapper.toResponse(
-                savedStudent);
+        return studentMapper.toResponse(savedStudent);
     }
 
 
@@ -351,73 +351,144 @@ public class StudentServiceImpl implements StudentService {
     // =========================================================
 
     @Override
-    public StudentDashboardResponse getStudentDashboard(
-            String studentId) {
+    public StudentDashboardResponse getStudentDashboard(String studentId) {
 
         Student student = getStudent(studentId);
         StudentResponse studentResponse = studentMapper.toResponse(student);
 
-        // 1. Attendance Analytics
-        List<Attendance> attendances = attendanceRepository.findByStudentId(student.getId());
-        if ((attendances == null || attendances.isEmpty()) && student.getStudentId() != null) {
-            attendances = attendanceRepository.findByStudentId(student.getStudentId());
+        // 1. Batch Metadata Resolution
+        String rawBatchId = student.getBatchId();
+        String batchName = "No batch assigned";
+        String courseName = null;
+        Batch resolvedBatch = null;
+
+        if (rawBatchId != null && !rawBatchId.isBlank()) {
+            resolvedBatch = batchRepository.findById(rawBatchId)
+                    .or(() -> batchRepository.findByBatchName(rawBatchId))
+                    .orElse(null);
+
+            if (resolvedBatch != null) {
+                batchName = resolvedBatch.getBatchName();
+                courseName = resolvedBatch.getCourseName();
+            } else if (student.getBatchName() != null && !student.getBatchName().isBlank()) {
+                batchName = student.getBatchName();
+            } else {
+                batchName = "Batch " + rawBatchId;
+            }
         }
+
+        StudentDashboardResponse.BatchInfo batchInfo = StudentDashboardResponse.BatchInfo.builder()
+                .id(rawBatchId)
+                .name(batchName)
+                .courseName(courseName)
+                .build();
+
+        studentResponse.setBatchName(batchName);
+        studentResponse.setCourseName(courseName);
+
+        // 2. Attendance Analytics
+        List<Attendance> attendances = new ArrayList<>();
+        if (student.getId() != null) {
+            attendances.addAll(attendanceRepository.findByStudentId(student.getId()));
+        }
+        if (student.getStudentId() != null) {
+            List<Attendance> bySid = attendanceRepository.findByStudentId(student.getStudentId());
+            for (Attendance a : bySid) {
+                if (attendances.stream().noneMatch(x -> x.getId() != null && x.getId().equals(a.getId()))) {
+                    attendances.add(a);
+                }
+            }
+        }
+        if (student.getEmail() != null) {
+            List<Attendance> byEmail = attendanceRepository.findByStudentId(student.getEmail());
+            for (Attendance a : byEmail) {
+                if (attendances.stream().noneMatch(x -> x.getId() != null && x.getId().equals(a.getId()))) {
+                    attendances.add(a);
+                }
+            }
+        }
+
         int presentDays = 0;
         int absentDays = 0;
-        if (attendances != null) {
-            for (Attendance att : attendances) {
-                if (att.getStatus() != null && ("PRESENT".equalsIgnoreCase(att.getStatus()) || "LATE".equalsIgnoreCase(att.getStatus()))) {
+        for (Attendance att : attendances) {
+            if (att.getStatus() != null) {
+                String st = att.getStatus().toUpperCase();
+                if (st.equals("PRESENT") || st.equals("LATE")) {
                     presentDays++;
-                } else if (att.getStatus() != null && "ABSENT".equalsIgnoreCase(att.getStatus())) {
+                } else if (st.equals("ABSENT") || st.equals("LEAVE")) {
                     absentDays++;
                 }
             }
         }
-        int totalAttendanceDays = (attendances != null) ? attendances.size() : 0;
-        double attendancePercentage = totalAttendanceDays > 0 ? (presentDays * 100.0 / totalAttendanceDays) : 92.0;
-        attendancePercentage = Math.round(attendancePercentage * 10.0) / 10.0;
+        int totalAttendanceDays = presentDays + absentDays;
+        double attendancePercentage = totalAttendanceDays > 0
+                ? Math.round(((double) presentDays * 100.0 / totalAttendanceDays) * 10.0) / 10.0
+                : 0.0;
 
-        // 2. Assignment Analytics
+        // 3. Assignment Analytics
         long totalAssignments = 0;
-        if (student.getBatchId() != null && !student.getBatchId().isBlank()) {
-            totalAssignments = assignmentRepository.countByBatchId(student.getBatchId());
+        if (rawBatchId != null && !rawBatchId.isBlank()) {
+            totalAssignments = assignmentRepository.countByBatchId(rawBatchId);
             if (totalAssignments == 0) {
-                List<Assignment> allAssgs = assignmentRepository.findAll();
-                for (Assignment a : allAssgs) {
-                    if (a.getBatchId() != null && (a.getBatchId().equalsIgnoreCase(student.getBatchId()) || "BATCH001".equalsIgnoreCase(a.getBatchId()))) {
-                        totalAssignments++;
-                    }
+                List<Assignment> batchAss = assignmentRepository.findByBatchId(rawBatchId);
+                totalAssignments = (batchAss != null) ? batchAss.size() : 0;
+            }
+        }
+
+        List<AssignmentSubmission> submissions = new ArrayList<>();
+        if (student.getId() != null) {
+            submissions.addAll(assignmentSubmissionRepository.findByStudentId(student.getId()));
+        }
+        if (student.getStudentId() != null) {
+            List<AssignmentSubmission> bySid = assignmentSubmissionRepository.findByStudentId(student.getStudentId());
+            for (AssignmentSubmission s : bySid) {
+                if (submissions.stream().noneMatch(x -> x.getId() != null && x.getId().equals(s.getId()))) {
+                    submissions.add(s);
                 }
             }
         }
-        long completedAssignments = assignmentSubmissionRepository.countByStudentIdAndStatus(student.getId(), "COMPLETED");
-        if (completedAssignments == 0) {
-            completedAssignments = assignmentSubmissionRepository.countByStudentIdAndStatus(student.getId(), "EVALUATED");
+
+        long completedAssignments = submissions.stream().filter(s -> {
+            String st = s.getStatus() != null ? s.getStatus().toUpperCase() : "";
+            String subSt = s.getSubmissionStatus() != null ? s.getSubmissionStatus().toUpperCase() : "";
+            return st.equals("COMPLETED") || st.equals("EVALUATED") || subSt.equals("SUBMITTED") || st.equals("SUBMITTED");
+        }).count();
+
+        long pendingAssignments = Math.max(0, totalAssignments - completedAssignments);
+        double assignmentCompletionPct = totalAssignments > 0
+                ? Math.round(((double) completedAssignments * 100.0 / totalAssignments) * 10.0) / 10.0
+                : 0.0;
+
+        // 4. Assessment & Trend Analytics
+        List<AssessmentResult> results = new ArrayList<>();
+        if (student.getId() != null) {
+            results.addAll(assessmentRepository.findByStudentId(student.getId()));
         }
-        if (completedAssignments == 0 && student.getStudentId() != null) {
-            completedAssignments = assignmentSubmissionRepository.countByStudentIdAndStatus(student.getStudentId(), "COMPLETED");
-            if (completedAssignments == 0) {
-                completedAssignments = assignmentSubmissionRepository.countByStudentIdAndStatus(student.getStudentId(), "EVALUATED");
+        if (student.getStudentId() != null) {
+            List<AssessmentResult> bySid = assessmentRepository.findByStudentId(student.getStudentId());
+            for (AssessmentResult r : bySid) {
+                if (results.stream().noneMatch(x -> x.getId() != null && x.getId().equals(r.getId()))) {
+                    results.add(r);
+                }
             }
         }
-        long pendingAssignments = Math.max(0, totalAssignments - completedAssignments);
-        double assignmentCompletionPct = totalAssignments > 0 ? Math.round((completedAssignments * 100.0 / totalAssignments) * 10.0) / 10.0 : 80.0;
 
-        // 3. Assessment & Trend Analytics
-        List<AssessmentResult> results = assessmentRepository.findByStudentId(student.getId());
-        if ((results == null || results.isEmpty()) && student.getStudentId() != null) {
-            results = assessmentRepository.findByStudentId(student.getStudentId());
-        }
         List<StudentDashboardResponse.AssessmentTrendPoint> trendPoints = new ArrayList<>();
-        double sumAssessmentPct = 0.0;
-        if (results != null && !results.isEmpty()) {
-            results.sort(Comparator.comparing(r -> r.getSubmittedAt() != null ? r.getSubmittedAt() : LocalDateTime.MIN));
+        double sumAssessment = 0.0;
+        if (!results.isEmpty()) {
+            results.sort(Comparator.comparing(r -> r.getSubmittedAt() != null ? r.getSubmittedAt() : (r.getCreatedAt() != null ? r.getCreatedAt() : LocalDateTime.MIN)));
             for (int i = 0; i < results.size(); i++) {
                 AssessmentResult r = results.get(i);
-                double score = r.getPercentage() != null ? r.getPercentage() : 0.0;
-                sumAssessmentPct += score;
+                double score = 0.0;
+                if (r.getPercentage() != null) {
+                    score = r.getPercentage();
+                } else if (r.getTotalMarks() != null && r.getTotalMarks() > 0 && r.getObtainedMarks() != null) {
+                    score = (r.getObtainedMarks() * 100.0) / r.getTotalMarks();
+                }
+                score = Math.round(score * 10.0) / 10.0;
+                sumAssessment += score;
                 String title = r.getAssessmentTitle() != null ? r.getAssessmentTitle() : ("Assessment " + (i + 1));
-                String dt = r.getSubmittedAt() != null ? r.getSubmittedAt().toString().substring(0, 10) : "2026-08-01";
+                String dt = r.getSubmittedAt() != null ? r.getSubmittedAt().toString().substring(0, 10) : (r.getCreatedAt() != null ? r.getCreatedAt().toString().substring(0, 10) : "2026-08-01");
                 trendPoints.add(StudentDashboardResponse.AssessmentTrendPoint.builder()
                         .title(title)
                         .score(score)
@@ -425,10 +496,11 @@ public class StudentServiceImpl implements StudentService {
                         .build());
             }
         }
-        long totalAssessments = results != null ? results.size() : 0;
-        double assessmentPercentage = (results != null && !results.isEmpty())
-                ? Math.round((sumAssessmentPct / results.size()) * 10.0) / 10.0
-                : 92.0;
+
+        long totalAssessments = results.size();
+        double assessmentPercentage = totalAssessments > 0
+                ? Math.round((sumAssessment / totalAssessments) * 10.0) / 10.0
+                : 0.0;
 
         String trendStatus = "Stable";
         if (trendPoints.size() >= 2) {
@@ -441,10 +513,10 @@ public class StudentServiceImpl implements StudentService {
             }
         }
 
-        // 4. Subject Performance Breakdown
+        // 5. Subject Performance Breakdown
         List<StudentDashboardResponse.SubjectPerformancePoint> subjectPoints = new ArrayList<>();
-        if (results != null && !results.isEmpty()) {
-            Map<String, List<Double>> subjectMap = new HashMap<>();
+        if (!results.isEmpty()) {
+            Map<String, List<Double>> subjectMap = new LinkedHashMap<>();
             for (AssessmentResult r : results) {
                 String subj = "General";
                 if (r.getAssessmentTitle() != null) {
@@ -453,10 +525,12 @@ public class StudentServiceImpl implements StudentService {
                     else if (t.contains("sql") || t.contains("db")) subj = "SQL & Databases";
                     else if (t.contains("dsa") || t.contains("algo")) subj = "DSA";
                     else if (t.contains("aptitude")) subj = "Aptitude";
-                    else if (t.contains("react") || t.contains("web")) subj = "Frontend & React";
+                    else if (t.contains("react") || t.contains("web") || t.contains("frontend")) subj = "Frontend & React";
+                    else if (t.contains("spring") || t.contains("backend")) subj = "Spring Boot & Backend";
                     else subj = r.getAssessmentTitle();
                 }
-                subjectMap.computeIfAbsent(subj, k -> new ArrayList<>()).add(r.getPercentage() != null ? r.getPercentage() : 0.0);
+                double sc = r.getPercentage() != null ? r.getPercentage() : (r.getTotalMarks() != null && r.getTotalMarks() > 0 && r.getObtainedMarks() != null ? (r.getObtainedMarks() * 100.0 / r.getTotalMarks()) : 0.0);
+                subjectMap.computeIfAbsent(subj, k -> new ArrayList<>()).add(sc);
             }
             for (Map.Entry<String, List<Double>> entry : subjectMap.entrySet()) {
                 double avg = entry.getValue().stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
@@ -468,49 +542,132 @@ public class StudentServiceImpl implements StudentService {
             }
         }
 
-        // 5. Performance & Leaderboard
-        Performance performance = performanceRepository.findByStudentId(student.getId())
+        // 6. Overall Performance & Batch Standings
+        Performance manualPerf = performanceRepository.findByStudentId(student.getId())
                 .or(() -> performanceRepository.findByStudentId(student.getStudentId()))
                 .orElse(null);
 
-        double overallPerformance = 93.8;
-        int currentRank = 1;
-        String performanceStatus = "EXCELLENT";
-
-        if (performance != null) {
-            if (performance.getOverallPercentage() != null) overallPerformance = performance.getOverallPercentage();
-            if (performance.getRank() != null) currentRank = performance.getRank();
-            if (performance.getPerformanceStatus() != null) performanceStatus = performance.getPerformanceStatus().name();
-        }
-
-        List<Performance> batchPerformances = (student.getBatchId() != null && !student.getBatchId().isBlank())
-                ? performanceRepository.findByBatchIdOrderByRankAsc(student.getBatchId())
-                : performanceRepository.findAllByOrderByRankAsc();
-
-        int totalBatchStudents = (batchPerformances != null && !batchPerformances.isEmpty()) ? batchPerformances.size() : 1;
-
-        List<TopperResponse> batchLeaderboard = new ArrayList<>();
-        if (batchPerformances != null && !batchPerformances.isEmpty()) {
-            for (Performance p : batchPerformances) {
-                batchLeaderboard.add(TopperResponse.builder()
-                        .rank(p.getRank())
-                        .studentId(p.getStudentId())
-                        .studentName(p.getStudentName())
-                        .batchId(p.getBatchId())
-                        .overallPercentage(p.getOverallPercentage())
-                        .performanceStatus(p.getPerformanceStatus() != null ? p.getPerformanceStatus().name() : "EXCELLENT")
-                        .build());
+        double overallPerformance = 0.0;
+        if (manualPerf != null && manualPerf.getOverallPercentage() != null) {
+            overallPerformance = manualPerf.getOverallPercentage();
+        } else {
+            double weightedSum = 0.0;
+            double totalWeight = 0.0;
+            if (totalAttendanceDays > 0) {
+                weightedSum += attendancePercentage * 0.25;
+                totalWeight += 0.25;
             }
+            if (totalAssignments > 0) {
+                weightedSum += assignmentCompletionPct * 0.25;
+                totalWeight += 0.25;
+            }
+            if (totalAssessments > 0) {
+                weightedSum += assessmentPercentage * 0.30;
+                totalWeight += 0.30;
+            }
+            overallPerformance = totalWeight > 0
+                    ? Math.round((weightedSum / totalWeight) * 10.0) / 10.0
+                    : 0.0;
         }
 
-        // 6. Study Materials, Notices, Guest Sessions, Interview
+        String performanceStatus = "EVALUATING";
+        if (overallPerformance >= 85.0) performanceStatus = "EXCELLENT";
+        else if (overallPerformance >= 70.0) performanceStatus = "GOOD";
+        else if (overallPerformance >= 50.0) performanceStatus = "AVERAGE";
+        else if (overallPerformance > 0.0) performanceStatus = "NEEDS_IMPROVEMENT";
+
+        // Real Batch Ranking & Leaderboard
+        List<Student> batchStudents = (rawBatchId != null && !rawBatchId.isBlank())
+                ? studentRepository.findByBatchId(rawBatchId)
+                : List.of(student);
+
+        if (batchStudents == null || batchStudents.isEmpty()) {
+            batchStudents = List.of(student);
+        }
+
+        int totalBatchStudents = batchStudents.size();
+
+        class StudentRankHolder {
+            String id;
+            String studentId;
+            String name;
+            String batchId;
+            double score;
+            String status;
+            int rank;
+        }
+
+        List<StudentRankHolder> rankHolders = new ArrayList<>();
+        for (Student st : batchStudents) {
+            StudentRankHolder h = new StudentRankHolder();
+            h.id = st.getId();
+            h.studentId = st.getStudentId() != null ? st.getStudentId() : st.getId();
+            String stName = (st.getFirstName() != null ? st.getFirstName() : "") + " " + (st.getLastName() != null ? st.getLastName() : "");
+            h.name = stName.trim().isEmpty() ? "Student" : stName.trim();
+            h.batchId = st.getBatchId();
+
+            Performance p = null;
+            if (st.getId() != null) {
+                p = performanceRepository.findByStudentId(st.getId()).orElse(null);
+            }
+            if (p == null && st.getStudentId() != null && !st.getStudentId().isBlank()) {
+                p = performanceRepository.findByStudentId(st.getStudentId()).orElse(null);
+            }
+
+            if (p != null && p.getOverallPercentage() != null) {
+                h.score = p.getOverallPercentage();
+            } else if (st.getId().equals(student.getId()) || (st.getStudentId() != null && st.getStudentId().equals(student.getStudentId()))) {
+                h.score = overallPerformance;
+            } else {
+                List<AssessmentResult> stResults = (st.getId() != null) ? assessmentRepository.findByStudentId(st.getId()) : null;
+                double stAssScore = (stResults != null && !stResults.isEmpty())
+                        ? stResults.stream().mapToDouble(r -> r.getPercentage() != null ? r.getPercentage() : 0.0).average().orElse(0.0)
+                        : 0.0;
+                h.score = Math.round(stAssScore * 10.0) / 10.0;
+            }
+
+            if (h.score >= 85.0) h.status = "EXCELLENT";
+            else if (h.score >= 70.0) h.status = "GOOD";
+            else if (h.score >= 50.0) h.status = "AVERAGE";
+            else if (h.score > 0.0) h.status = "NEEDS_IMPROVEMENT";
+            else h.status = "EVALUATING";
+
+            rankHolders.add(h);
+        }
+
+        rankHolders.sort((a, b) -> {
+            int cmp = Double.compare(b.score, a.score);
+            if (cmp != 0) return cmp;
+            return a.name.compareToIgnoreCase(b.name);
+        });
+
+        int currentRank = 1;
+        List<TopperResponse> batchLeaderboard = new ArrayList<>();
+        for (int i = 0; i < rankHolders.size(); i++) {
+            StudentRankHolder h = rankHolders.get(i);
+            h.rank = i + 1;
+            if (h.id.equals(student.getId()) || (student.getStudentId() != null && student.getStudentId().equals(h.studentId))) {
+                currentRank = h.rank;
+            }
+            batchLeaderboard.add(TopperResponse.builder()
+                    .id(h.id)
+                    .rank(h.rank)
+                    .studentId(h.studentId)
+                    .studentName(h.name)
+                    .batchId(h.batchId != null ? h.batchId : rawBatchId)
+                    .overallPercentage(h.score)
+                    .performanceStatus(h.status)
+                    .build());
+        }
+
+        // 7. Study Materials, Notices, Guest Sessions, Interview
         long totalStudyMaterials = 0;
-        if (student.getBatchId() != null && !student.getBatchId().isBlank()) {
-            totalStudyMaterials = materialRepository.countByBatchId(student.getBatchId());
+        if (rawBatchId != null && !rawBatchId.isBlank()) {
+            totalStudyMaterials = materialRepository.countByBatchId(rawBatchId);
             if (totalStudyMaterials == 0) {
                 List<StudyMaterial> allMats = materialRepository.findAll();
                 for (StudyMaterial m : allMats) {
-                    if (m.getBatchId() != null && (m.getBatchId().equalsIgnoreCase(student.getBatchId()) || "BATCH001".equalsIgnoreCase(m.getBatchId()))) {
+                    if (m.getBatchId() != null && m.getBatchId().equalsIgnoreCase(rawBatchId)) {
                         totalStudyMaterials++;
                     }
                 }
@@ -520,23 +677,32 @@ public class StudentServiceImpl implements StudentService {
         List<NoticeResponse> latestNotices = noticeRepository.findAllByOrderByCreatedAtDesc()
                 .stream()
                 .filter(notice -> notice.getActive() != null && notice.getActive())
-                .filter(notice -> student.getBatchId() == null || notice.getBatchId() == null || student.getBatchId().equals(notice.getBatchId()))
+                .filter(notice -> rawBatchId == null || notice.getBatchId() == null || rawBatchId.equals(notice.getBatchId()))
                 .limit(5)
                 .map(noticeMapper::toResponse)
                 .toList();
 
         List<GuestSessionResponse> guestSessions = List.of();
-        if (student.getBatchId() != null && !student.getBatchId().isBlank()) {
-            guestSessions = guestSessionRepository.findByBatchIdAndActiveTrue(student.getBatchId())
+        if (rawBatchId != null && !rawBatchId.isBlank()) {
+            guestSessions = guestSessionRepository.findByBatchIdAndActiveTrue(rawBatchId)
                     .stream()
                     .map(guestSessionMapper::toResponse)
                     .toList();
         }
 
         InterviewResponse interviewResponse = getLatestInterview(studentId);
+        String resolvedStudentName = ((student.getFirstName() != null ? student.getFirstName() : "") + " " + (student.getLastName() != null ? student.getLastName() : "")).trim();
+        if (resolvedStudentName.isEmpty()) resolvedStudentName = "Student";
 
         return StudentDashboardResponse.builder()
                 .student(studentResponse)
+                .studentId(student.getStudentId() != null ? student.getStudentId() : student.getId())
+                .studentName(resolvedStudentName)
+                .email(student.getEmail())
+                .batchId(rawBatchId)
+                .batchName(batchName)
+                .courseName(courseName)
+                .batch(batchInfo)
                 .attendancePercentage(attendancePercentage)
                 .presentDays(presentDays)
                 .absentDays(absentDays)
@@ -547,9 +713,12 @@ public class StudentServiceImpl implements StudentService {
                 .assignmentCompletionPercentage(assignmentCompletionPct)
                 .totalAssessments(toInt(totalAssessments))
                 .assessmentPercentage(assessmentPercentage)
+                .averageAssessment(assessmentPercentage)
                 .overallPerformance(overallPerformance)
                 .currentRank(currentRank)
+                .batchRank(currentRank)
                 .totalBatchStudents(totalBatchStudents)
+                .batchSize(totalBatchStudents)
                 .performanceStatus(performanceStatus)
                 .trendStatus(trendStatus)
                 .performanceTrend(trendPoints)

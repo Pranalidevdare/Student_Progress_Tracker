@@ -11,6 +11,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class TopperResponse {
 
+    private String id;
+
     private Integer rank;
 
     private String studentId;

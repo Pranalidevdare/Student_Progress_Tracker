@@ -34,10 +34,19 @@ public class AptitudeScheduleServiceImpl
     public AptitudeScheduleResponse scheduleTest(
             AptitudeScheduleRequest request) {
 
-        // Validate time
-        if (!request.getEndTime()
-                .isAfter(request.getStartTime())) {
+        // Timezone validation for India (IST)
+        java.time.ZoneId istZone = java.time.ZoneId.of("Asia/Kolkata");
+        LocalDateTime now = LocalDateTime.now(istZone);
+        LocalDateTime scheduledStart = LocalDateTime.of(request.getTestDate(), request.getStartTime());
 
+        if (!scheduledStart.isAfter(now)) {
+            throw new IllegalArgumentException(
+                    "Aptitude test must be scheduled for a future date and time. (Current time in IST is "
+                            + now.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy hh:mm a")) + ")");
+        }
+
+        // Validate time
+        if (!request.getEndTime().isAfter(request.getStartTime())) {
             throw new IllegalArgumentException(
                     "End time must be after start time");
         }
@@ -78,14 +87,18 @@ public class AptitudeScheduleServiceImpl
 
             applicationRepository.save(application);
 
-            try {
-                emailService.sendAptitudeScheduleEmail(
-                        application.getEmail(),
-                        application.getFullName(),
-                        savedSchedule);
-            } catch (Exception e) {
-                System.err.println("Aptitude schedule email error: " + e.getMessage());
-            }
+            final String email = application.getEmail();
+            final String name = application.getFullName();
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    emailService.sendAptitudeScheduleEmail(
+                            email,
+                            name,
+                            savedSchedule);
+                } catch (Exception e) {
+                    System.err.println("Aptitude schedule email error: " + e.getMessage());
+                }
+            });
         }
 
         return mapToResponse(savedSchedule);

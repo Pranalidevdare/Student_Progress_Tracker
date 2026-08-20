@@ -43,6 +43,7 @@ export const batchApi = {
 
 // ─── ONLINE APTITUDE TEST APIs ─────────────────────────────────────────
 export const aptitudeApi = {
+  checkEligibility: (candidateId) => api.get(`/api/aptitude/eligibility/${candidateId}`),
   getQuestions: () => api.get('/api/aptitude/questions'),
   startTest: (candidateId) => api.post(`/api/aptitude/start/${candidateId}`),
   submitTest: (submission) => api.post('/api/aptitude/submit', submission),
@@ -430,7 +431,7 @@ export const trainerApi = {
 
 // ─── STUDENT OPERATIONAL APIs ──────────────────────────────────────────
 export const studentApi = {
-  getDashboard: (studentId) => api.get(`/api/student/dashboard/${studentId}`),
+  getDashboard: (studentId) => studentId ? api.get(`/api/student/dashboard/${studentId}`) : api.get('/api/student/dashboard'),
   getAttendance: (studentId) => api.get(`/api/student/attendance/${studentId}`),
   getAssignments: (batchId) => api.get(`/api/student/assignments/${batchId}`),
   submitAssignment: (data) => api.post('/api/student/assignments/submit', data),

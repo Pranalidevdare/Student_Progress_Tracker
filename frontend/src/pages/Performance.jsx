@@ -17,9 +17,9 @@ export default function Performance() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const studentId = user?.id || user?.studentId || user?.email || 'STU001';
-  const studentName = user?.fullName || 'Student Candidate';
-  const batchId = user?.batchId || user?.batch || 'BATCH001';
+  const studentId = user?.id || user?.studentId || user?.email || '';
+  const studentName = user?.fullName || 'Student';
+  const batchId = user?.batchId || user?.batch || '';
 
   const [performance, setPerformance] = useState(null);
   const [assignments, setAssignments] = useState([]);
@@ -38,11 +38,11 @@ export default function Performance() {
     setHasError(false);
     try {
       const [perfRes, assRes, evalRes, attRes, topRes] = await Promise.allSettled([
-        getStudentPerformance(studentId),
-        getStudentAssignmentsByBatch(batchId),
-        getStudentAssessmentsByBatch(batchId),
-        getAttendanceByBatch(batchId),
-        getToppersByBatch(batchId)
+        studentId ? getStudentPerformance(studentId) : Promise.resolve({ data: null }),
+        batchId ? getStudentAssignmentsByBatch(batchId) : Promise.resolve({ data: [] }),
+        batchId ? getStudentAssessmentsByBatch(batchId) : Promise.resolve({ data: [] }),
+        batchId ? getAttendanceByBatch(batchId) : Promise.resolve({ data: [] }),
+        batchId ? getToppersByBatch(batchId) : Promise.resolve({ data: [] })
       ]);
 
       if (perfRes.status === 'fulfilled' && perfRes.value.data) {
@@ -86,12 +86,12 @@ export default function Performance() {
   const totalEvalCount = assessments.length;
   const completedEvalCount = assessments.filter(a => a.status === 'COMPLETED').length;
   const pendingEvalCount = totalEvalCount - completedEvalCount;
-  const avgEvalScore = performance?.assessmentPercentage || 92.0;
+  const avgEvalScore = performance?.assessmentPercentage != null ? performance.assessmentPercentage : 0.0;
 
   // --- DERIVED ATTENDANCE ANALYTICS ---
   const studentAttRecords = attendanceRecords.filter(r =>
-    (r.studentId && r.studentId.toLowerCase() === studentId.toLowerCase()) ||
-    (r.studentName && r.studentName.toLowerCase() === studentName.toLowerCase())
+    (r.studentId && studentId && r.studentId.toLowerCase() === studentId.toLowerCase()) ||
+    (r.studentName && studentName && r.studentName.toLowerCase() === studentName.toLowerCase())
   );
   const totalAttDays = studentAttRecords.length;
   const presentDays = studentAttRecords.filter(r => r.status === 'PRESENT').length;
@@ -99,11 +99,11 @@ export default function Performance() {
   const absentDays = studentAttRecords.filter(r => r.status === 'ABSENT').length;
   const calculatedAttPct = totalAttDays > 0
     ? Math.round(((presentDays + lateDays) / totalAttDays) * 100)
-    : (performance?.attendancePercentage || 95.0);
+    : (performance?.attendancePercentage != null ? performance.attendancePercentage : 0.0);
 
   // --- DERIVED RANKING ---
-  const myRankInBatch = performance?.rank || 1;
-  const totalStudentsInBatch = toppers.length > 0 ? toppers.length : 5;
+  const myRankInBatch = performance?.rank != null ? performance.rank : '-';
+  const totalStudentsInBatch = toppers.length > 0 ? toppers.length : 0;
 
   const getStatusBadgeClass = (st) => {
     switch (st) {
@@ -116,7 +116,7 @@ export default function Performance() {
       case 'NEEDS_IMPROVEMENT':
         return 'bg-red-100 text-red-800 border-red-300';
       default:
-        return 'bg-emerald-100 text-emerald-800 border-emerald-300';
+        return 'bg-blue-100 text-blue-800 border-blue-300';
     }
   };
 
@@ -143,7 +143,7 @@ export default function Performance() {
           </div>
           <div>
             <p className="font-extrabold text-white">{studentName}</p>
-            <p className="text-[11px] text-indigo-200 font-mono">ID: {studentId} • Batch: {batchId}</p>
+            <p className="text-[11px] text-indigo-200 font-mono">ID: {studentId || '-'} • Batch: {batchId || 'Unassigned'}</p>
           </div>
           <span className="text-[10px] font-extrabold uppercase bg-white/20 px-2 py-0.5 rounded text-amber-300 border border-amber-300/30 ml-1">
             READ ONLY
@@ -177,7 +177,7 @@ export default function Performance() {
                 </span>
                 <h2 className="text-2xl font-black">{studentName}</h2>
                 <p className="text-xs text-gray-300 leading-relaxed max-w-md">
-                  {performance?.remarks || 'Top performing student in batch with high coursework compliance.'}
+                  {performance?.remarks || 'Coursework and academic records from database.'}
                 </p>
               </div>
 
@@ -185,7 +185,7 @@ export default function Performance() {
                 <div className="text-center px-2">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Overall Score</span>
                   <span className="text-3xl sm:text-4xl font-black text-emerald-400 mt-1 block">
-                    {performance?.overallPercentage ? `${performance.overallPercentage.toFixed(1)}%` : '93.8%'}
+                    {performance?.overallPercentage != null ? `${performance.overallPercentage.toFixed(1)}%` : '0.0%'}
                   </span>
                 </div>
 
@@ -200,8 +200,8 @@ export default function Performance() {
             </div>
 
             <div className="pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className={`px-3 py-1 rounded-full text-xs font-extrabold border ${getStatusBadgeClass(performance?.performanceStatus || 'EXCELLENT')}`}>
-                Status: {performance?.performanceStatus || 'EXCELLENT'}
+              <span className={`px-3 py-1 rounded-full text-xs font-extrabold border ${getStatusBadgeClass(performance?.performanceStatus || 'EVALUATING')}`}>
+                Status: {performance?.performanceStatus || 'EVALUATING'}
               </span>
               <span className="text-xs text-gray-400 font-medium">Updated from MongoDB</span>
             </div>

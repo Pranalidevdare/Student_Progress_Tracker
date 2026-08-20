@@ -41,6 +41,8 @@ public class StudentResponse {
     private Double cgpa;
 
     private String batchId;
+    private String batchName;
+    private String courseName;
 
     private String profileImage;
 

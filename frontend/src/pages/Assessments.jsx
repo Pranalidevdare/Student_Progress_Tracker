@@ -15,9 +15,9 @@ export default function Assessments() {
   const roleStr = String(user?.role || '').toUpperCase();
   const isStudent = roleStr.includes('STUDENT');
 
-  const studentId = user?.id || user?.studentId || user?.email || 'STU001';
-  const trainerId = user?.id || localStorage.getItem('trainerId') || 'TRN101';
-  const batchId = user?.batchId || user?.batch || localStorage.getItem('batchId') || 'BATCH001';
+  const studentId = user?.studentId || user?.id || user?.email || '';
+  const trainerId = user?.id || localStorage.getItem('trainerId') || '';
+  const batchId = user?.batchId || user?.batch || localStorage.getItem('batchId') || '';
 
   const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(false);

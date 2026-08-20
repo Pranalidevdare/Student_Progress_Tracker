@@ -29,6 +29,7 @@ import Interviews from './pages/Interviews';
 import Performance from './pages/Performance';
 import Feedback from './pages/Feedback';
 import Toppers from './pages/Toppers';
+import BatchManagement from './pages/BatchManagement';
 import TrainerLayout from './layouts/TrainerLayout';
 
 const ProtectedRoute = ({ children }) => {
@@ -84,6 +85,7 @@ export default function App() {
               <Route path="/performance" element={<Performance />} />
               <Route path="/feedback" element={<Feedback />} />
               <Route path="/toppers" element={<Toppers />} />
+              <Route path="/batches" element={<BatchManagement />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

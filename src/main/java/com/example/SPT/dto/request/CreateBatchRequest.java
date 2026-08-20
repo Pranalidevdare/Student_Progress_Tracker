@@ -1,6 +1,7 @@
 package com.example.SPT.dto.request;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -22,12 +23,13 @@ public class CreateBatchRequest {
     @NotNull(message = "Soft Skills Trainer Id is required")
     private String softSkillsTrainerId;
 
-    @NotNull(message = "Start Date is required")
     private LocalDate startDate;
 
-    @NotNull(message = "End Date is required")
     private LocalDate endDate;
 
+    @NotNull(message = "Capacity is required")
     @Min(value = 1, message = "Capacity must be greater than 0")
     private Integer capacity;
+
+    private List<String> applicationIds;
 }

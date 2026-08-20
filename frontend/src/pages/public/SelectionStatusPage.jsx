@@ -348,33 +348,42 @@ export default function SelectionStatusPage() {
                   const isAptitudePassed = localAptitudePassed || [
                     'APTITUDE_PASSED', 'DOCUMENTS_SUBMITTED', 'DOCUMENTS_VERIFIED',
                     'TECHNICAL_INTERVIEW_PASSED', 'HR_INTERVIEW_PASSED', 'HOME_VISIT_COMPLETED',
-                    'SELECTED', 'BATCH_ASSIGNED'
+                    'HOME_VISIT_PASSED', 'SELECTED', 'BATCH_ASSIGNED'
                   ].includes(statusStr);
 
-                  const isDocSubmitted = ['DOCUMENTS_SUBMITTED', 'DOCUMENTS_VERIFIED', 'TECHNICAL_INTERVIEW_PASSED', 'HR_INTERVIEW_PASSED', 'HOME_VISIT_COMPLETED', 'SELECTED', 'BATCH_ASSIGNED'].includes(statusStr);
-                  const isDocVerified = ['DOCUMENTS_VERIFIED', 'TECHNICAL_INTERVIEW_PASSED', 'HR_INTERVIEW_PASSED', 'HOME_VISIT_COMPLETED', 'SELECTED', 'BATCH_ASSIGNED'].includes(statusStr);
-                  const isInterviewPassed = ['TECHNICAL_INTERVIEW_PASSED', 'HR_INTERVIEW_PASSED', 'HOME_VISIT_COMPLETED', 'SELECTED', 'BATCH_ASSIGNED'].includes(statusStr);
+                  const isDocSubmitted = ['DOCUMENTS_SUBMITTED', 'DOCUMENTS_VERIFIED', 'TECHNICAL_INTERVIEW_PASSED', 'HR_INTERVIEW_PASSED', 'HOME_VISIT_COMPLETED', 'HOME_VISIT_PASSED', 'SELECTED', 'BATCH_ASSIGNED'].includes(statusStr);
+                  const isDocVerified = ['DOCUMENTS_VERIFIED', 'TECHNICAL_INTERVIEW_PASSED', 'HR_INTERVIEW_PASSED', 'HOME_VISIT_COMPLETED', 'HOME_VISIT_PASSED', 'SELECTED', 'BATCH_ASSIGNED'].includes(statusStr);
+                  const isTechPassed = ['TECHNICAL_INTERVIEW_PASSED', 'HR_INTERVIEW_PASSED', 'HOME_VISIT_COMPLETED', 'HOME_VISIT_PASSED', 'SELECTED', 'BATCH_ASSIGNED'].includes(statusStr);
+                  const isHrPassed = ['HR_INTERVIEW_PASSED', 'HOME_VISIT_COMPLETED', 'HOME_VISIT_PASSED', 'SELECTED', 'BATCH_ASSIGNED'].includes(statusStr);
+                  const isHomeVisitDone = ['HOME_VISIT_COMPLETED', 'HOME_VISIT_PASSED', 'SELECTED', 'BATCH_ASSIGNED'].includes(statusStr);
 
                   return (
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, my: 3 }}>
-                      <Paper elevation={0} sx={{ p: 2.5, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
-                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Aptitude Exam</Typography>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: isAptitudePassed ? 'var(--success)' : '#d97706', mt: 0.5 }}>
-                          {isAptitudePassed ? 'PASSED (QUALIFIED)' : statusStr.includes('APTITUDE') ? 'SCHEDULED (PENDING)' : 'NOT STARTED'}
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(4, 1fr)' }, gap: 2, my: 3 }}>
+                      <Paper elevation={0} sx={{ p: 2, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>1. Aptitude</Typography>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: isAptitudePassed ? 'var(--success)' : '#d97706', mt: 0.5 }}>
+                          {isAptitudePassed ? 'PASSED' : statusStr.includes('APTITUDE') ? 'SCHEDULED' : 'PENDING'}
                         </Typography>
                       </Paper>
 
-                      <Paper elevation={0} sx={{ p: 2.5, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
-                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Document Verification</Typography>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: isDocVerified ? '#2563eb' : isDocSubmitted ? '#d97706' : '#64748b', mt: 0.5 }}>
-                          {isDocVerified ? 'VERIFIED & APPROVED' : isDocSubmitted ? 'SUBMITTED (PENDING)' : 'NOT SUBMITTED'}
+                      <Paper elevation={0} sx={{ p: 2, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>2. Document Verification</Typography>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: isDocVerified ? '#2563eb' : isDocSubmitted ? '#d97706' : '#64748b', mt: 0.5 }}>
+                          {isDocVerified ? 'VERIFIED' : isDocSubmitted ? 'SUBMITTED' : 'PENDING'}
                         </Typography>
                       </Paper>
 
-                      <Paper elevation={0} sx={{ p: 2.5, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
-                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Technical/HR Interview</Typography>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: isInterviewPassed ? 'var(--success)' : isDocVerified ? '#d97706' : '#64748b', mt: 0.5 }}>
-                          {isInterviewPassed ? 'QUALIFIED & PASSED' : isDocVerified ? 'IN PROGRESS' : 'AWAITING DOC VERIFICATION'}
+                      <Paper elevation={0} sx={{ p: 2, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>3. Technical Interview</Typography>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: isTechPassed ? 'var(--success)' : statusStr === 'TECHNICAL_INTERVIEW_FAILED' ? '#dc2626' : isDocVerified ? '#d97706' : '#64748b', mt: 0.5 }}>
+                          {isTechPassed ? 'PASSED' : statusStr === 'TECHNICAL_INTERVIEW_FAILED' ? 'FAILED' : isDocVerified ? 'IN QUEUE' : 'PENDING'}
+                        </Typography>
+                      </Paper>
+
+                      <Paper elevation={0} sx={{ p: 2, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>4. HR Interview & Home Visit</Typography>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: isHomeVisitDone ? 'var(--success)' : isHrPassed ? '#2563eb' : statusStr === 'HR_INTERVIEW_FAILED' ? '#dc2626' : isTechPassed ? '#d97706' : '#64748b', mt: 0.5 }}>
+                          {isHomeVisitDone ? 'HOME VISIT DONE' : isHrPassed ? 'HR PASSED (HOME VISIT QUEUE)' : statusStr === 'HR_INTERVIEW_FAILED' ? 'FAILED' : isTechPassed ? 'IN HR QUEUE' : 'PENDING'}
                         </Typography>
                       </Paper>
                     </Box>
@@ -393,9 +402,10 @@ export default function SelectionStatusPage() {
                       { level: 2, title: '2. Aptitude Examination', desc: 'Aptitude test score verified' },
                       { level: 3, title: '3. Document Submission', desc: 'Identity & academic records submitted' },
                       { level: 4, title: '4. Document Verification', desc: 'Documents verified by Admin' },
-                      { level: 5, title: '5. Technical & HR Interviews', desc: 'Faculty trainer evaluations' },
-                      { level: 6, title: '6. Home Visit Verification', desc: 'Background verification' },
-                      { level: 7, title: '7. Final Program Selection', desc: 'Selection & batch enrollment' },
+                      { level: 5, title: '5. Technical Interview', desc: 'Technical faculty evaluation' },
+                      { level: 6, title: '6. Soft-Skill / HR Interview', desc: 'Communication & HR evaluation' },
+                      { level: 7, title: '7. Home Visit Verification', desc: 'Background & home verification' },
+                      { level: 8, title: '8. Final Program Selection', desc: 'Selection & batch enrollment' },
                     ];
 
                     const statusLevelMap = {
@@ -405,11 +415,15 @@ export default function SelectionStatusPage() {
                       'APTITUDE_PASSED': 2,
                       'DOCUMENTS_SUBMITTED': 3,
                       'DOCUMENTS_VERIFIED': 4,
-                      'TECHNICAL_INTERVIEW_PASSED': 4.8,
-                      'HR_INTERVIEW_PASSED': 5,
-                      'HOME_VISIT_COMPLETED': 6,
-                      'SELECTED': 7,
-                      'BATCH_ASSIGNED': 7
+                      'TECHNICAL_INTERVIEW_SCHEDULED': 4.5,
+                      'TECHNICAL_INTERVIEW_PASSED': 5,
+                      'HR_INTERVIEW_SCHEDULED': 5.5,
+                      'HR_INTERVIEW_PASSED': 6,
+                      'HOME_VISIT_PENDING': 6.5,
+                      'HOME_VISIT_COMPLETED': 7,
+                      'HOME_VISIT_PASSED': 7,
+                      'SELECTED': 8,
+                      'BATCH_ASSIGNED': 8
                     };
 
                     const currentLevel = statusLevelMap[statusStr] || 1;

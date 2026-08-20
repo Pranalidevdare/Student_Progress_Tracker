@@ -17,10 +17,10 @@ import {
 
 export default function StudentDashboard() {
   const { user } = useAuth();
-  const studentIdentifier = user?.id || user?.studentId || user?.email || 'STUDENT001';
-  const batchId = user?.batchId || localStorage.getItem('batchId') || 'BATCH001';
 
   const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [dashboardData, setDashboardData] = useState(null);
   const [materials, setMaterials] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -40,23 +40,39 @@ export default function StudentDashboard() {
 
   const fetchDashboardData = async () => {
     setLoading(true);
+    setHasError(false);
+    setErrorMessage('');
     try {
-      const activeBatchId = user?.batchId || user?.batch || localStorage.getItem('batchId') || 'BATCH001';
-      const [dashRes, matRes, assRes, notRes] = await Promise.allSettled([
-        studentApi.getDashboard(studentIdentifier),
-        getStudentMaterialsByBatch(activeBatchId),
-        getStudentAssignmentsByBatch(activeBatchId),
-        getActiveNotices()
-      ]);
-
-      if (dashRes.status === 'fulfilled' && dashRes.value.data) {
-        setDashboardData(dashRes.value.data);
+      // 1. Fetch dashboard data for authenticated student from /api/student/dashboard
+      const dashRes = await studentApi.getDashboard();
+      const dash = dashRes?.data;
+      if (!dash) {
+        throw new Error("Unable to retrieve student dashboard data");
       }
-      if (matRes.status === 'fulfilled') setMaterials(Array.isArray(matRes.value.data) ? matRes.value.data : []);
-      if (assRes.status === 'fulfilled') setAssignments(Array.isArray(assRes.value.data) ? assRes.value.data : []);
-      if (notRes.status === 'fulfilled') setNotices(Array.isArray(notRes.value.data) ? notRes.value.data : []);
+      setDashboardData(dash);
+
+      // 2. Resolve active batch ID from backend response
+      const activeBatchId = dash.batchId || dash.batch?.id || dash.student?.batchId || user?.batchId || null;
+
+      // 3. Fetch materials, assignments, notices
+      if (activeBatchId) {
+        const [matRes, assRes, notRes] = await Promise.allSettled([
+          getStudentMaterialsByBatch(activeBatchId),
+          getStudentAssignmentsByBatch(activeBatchId),
+          getActiveNotices()
+        ]);
+
+        if (matRes.status === 'fulfilled') setMaterials(Array.isArray(matRes.value.data) ? matRes.value.data : []);
+        if (assRes.status === 'fulfilled') setAssignments(Array.isArray(assRes.value.data) ? assRes.value.data : []);
+        if (notRes.status === 'fulfilled') setNotices(Array.isArray(notRes.value.data) ? notRes.value.data : []);
+      } else {
+        const notRes = await getActiveNotices().catch(() => ({ data: [] }));
+        setNotices(Array.isArray(notRes.data) ? notRes.data : []);
+      }
     } catch (err) {
       console.error('Error loading dashboard data:', err);
+      setHasError(true);
+      setErrorMessage(err.response?.data?.message || 'Unable to load dashboard data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -72,49 +88,73 @@ export default function StudentDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="spinner w-10 h-10 border-red-600" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <div className="spinner w-10 h-10 border-blue-600 animate-spin" />
+        <p className="text-sm font-semibold text-gray-600">Loading dashboard...</p>
       </div>
     );
   }
 
-  // Calculate metrics from backend dashboard response with safe fallbacks
-  const overallPerf = dashboardData?.overallPerformance ?? 93.8;
-  const assessmentScore = dashboardData?.assessmentPercentage ?? 92.0;
-  const attendancePct = dashboardData?.attendancePercentage ?? 96.5;
-  const totalAss = dashboardData?.totalAssignments ?? (assignments.length || 5);
-  const completedAss = dashboardData?.completedAssignments ?? 4;
-  const pendingAss = dashboardData?.pendingAssignments ?? Math.max(0, totalAss - completedAss);
-  const assCompletionPct = dashboardData?.assignmentCompletionPercentage ?? (totalAss > 0 ? Math.round((completedAss * 100 / totalAss)) : 80);
-  const currentRank = dashboardData?.currentRank ?? 1;
-  const totalBatchStudents = dashboardData?.totalBatchStudents ?? 5;
-  const trendStatus = dashboardData?.trendStatus || 'Improving';
+  if (hasError || !dashboardData) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center bg-white rounded-2xl border border-red-100 shadow-xs max-w-lg mx-auto my-12">
+        <ShieldAlert size={48} className="text-red-500 mb-3" />
+        <h3 className="text-lg font-bold text-gray-900 mb-1">Unable to load dashboard data</h3>
+        <p className="text-xs text-gray-500 mb-4">{errorMessage || 'Unable to load dashboard data. Please try again.'}</p>
+        <button
+          onClick={fetchDashboardData}
+          className="btn-primary flex items-center gap-2 text-xs px-5 py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 shadow-sm"
+        >
+          <RefreshCw size={14} />
+          <span>Retry</span>
+        </button>
+      </div>
+    );
+  }
 
-  // Real or derived chart datasets
-  const rawTrend = dashboardData?.performanceTrend || [];
-  const trendData = rawTrend.length > 0 ? rawTrend : [
-    { title: 'Assessment 1', score: 85, date: 'Week 1' },
-    { title: 'Assessment 2', score: 88, date: 'Week 2' },
-    { title: 'Assessment 3', score: 91, date: 'Week 3' },
-    { title: 'Assessment 4', score: 94, date: 'Week 4' }
-  ];
+  // Calculate real student identifiers and metadata from database
+  const studentName = dashboardData.studentName
+    || [dashboardData.student?.firstName, dashboardData.student?.lastName].filter(Boolean).join(' ')
+    || user?.fullName
+    || 'Student';
 
-  const rawSubjects = dashboardData?.subjectPerformance || [];
-  const subjectPerformance = rawSubjects.length > 0 ? rawSubjects : [
-    { subject: 'Java & OOP', score: 92 },
-    { subject: 'SQL & DB', score: 95 },
-    { subject: 'DSA', score: 88 },
-    { subject: 'Aptitude', score: 90 },
-    { subject: 'React Frontend', score: 94 }
-  ];
+  const studentDisplayId = dashboardData.studentId
+    || dashboardData.student?.studentId
+    || user?.studentId
+    || user?.id
+    || '-';
 
-  // Attendance donut data
-  const presentDays = dashboardData?.presentDays ?? 19;
-  const absentDays = dashboardData?.absentDays ?? 1;
-  const attendanceDonutData = [
-    { name: 'Present', value: presentDays > 0 ? presentDays : 19, color: '#10b981' },
-    { name: 'Absent', value: absentDays > 0 ? absentDays : 1, color: '#ef4444' }
-  ];
+  const batchDisplayName = dashboardData.batch?.name
+    || dashboardData.batchName
+    || dashboardData.student?.batchName
+    || (dashboardData.batchId ? `Batch ${dashboardData.batchId}` : 'No batch assigned');
+
+  // Metrics directly from real backend database response
+  const overallPerf = dashboardData.overallPerformance != null ? Number(dashboardData.overallPerformance).toFixed(1) : '0.0';
+  const assessmentScore = dashboardData.assessmentPercentage != null ? Number(dashboardData.assessmentPercentage).toFixed(1) : '0.0';
+  const attendancePct = dashboardData.attendancePercentage != null ? Number(dashboardData.attendancePercentage).toFixed(1) : '0.0';
+  const totalAss = dashboardData.totalAssignments != null ? dashboardData.totalAssignments : assignments.length;
+  const completedAss = dashboardData.completedAssignments != null ? dashboardData.completedAssignments : 0;
+  const pendingAss = dashboardData.pendingAssignments != null ? dashboardData.pendingAssignments : Math.max(0, totalAss - completedAss);
+  const assCompletionPct = dashboardData.assignmentCompletionPercentage != null
+    ? Math.round(dashboardData.assignmentCompletionPercentage)
+    : (totalAss > 0 ? Math.round((completedAss * 100) / totalAss) : 0);
+  const currentRank = dashboardData.currentRank != null ? dashboardData.currentRank : (dashboardData.batchRank || '-');
+  const totalBatchStudents = dashboardData.totalBatchStudents != null ? dashboardData.totalBatchStudents : (dashboardData.batchSize || 0);
+  const trendStatus = dashboardData.trendStatus || 'Stable';
+
+  // Real chart datasets from MongoDB
+  const trendData = Array.isArray(dashboardData.performanceTrend) ? dashboardData.performanceTrend : [];
+  const subjectPerformance = Array.isArray(dashboardData.subjectPerformance) ? dashboardData.subjectPerformance : [];
+
+  // Attendance metrics
+  const presentDays = dashboardData.presentDays != null ? dashboardData.presentDays : 0;
+  const absentDays = dashboardData.absentDays != null ? dashboardData.absentDays : 0;
+  const totalDays = presentDays + absentDays;
+  const attendanceDonutData = totalDays > 0 ? [
+    { name: 'Present', value: presentDays, color: '#10b981' },
+    { name: 'Absent', value: absentDays, color: '#ef4444' }
+  ] : [];
 
   // Skill radar dataset
   const radarData = subjectPerformance.map(s => ({
@@ -122,18 +162,12 @@ export default function StudentDashboard() {
     score: s.score
   }));
 
-  // Leaderboard data
-  const leaderboard = dashboardData?.batchLeaderboard || [
-    { rank: 1, studentId: 'STU001', studentName: user?.fullName || 'Aarav Sharma', overallPercentage: 93.8, performanceStatus: 'EXCELLENT', isCurrent: true },
-    { rank: 2, studentId: 'STU002', studentName: 'Rahul Sharma', overallPercentage: 91.5, performanceStatus: 'EXCELLENT' },
-    { rank: 3, studentId: 'STU003', studentName: 'Priya Patel', overallPercentage: 88.0, performanceStatus: 'GOOD' },
-    { rank: 4, studentId: 'STU004', studentName: 'Siddharth Varma', overallPercentage: 84.5, performanceStatus: 'GOOD' },
-    { rank: 5, studentId: 'STU005', studentName: 'Neha Kulkarni', overallPercentage: 79.0, performanceStatus: 'AVERAGE' }
-  ];
+  // Leaderboard data from backend
+  const leaderboard = Array.isArray(dashboardData.batchLeaderboard) ? dashboardData.batchLeaderboard : [];
 
   const getTrendBadge = (status) => {
     if (status === 'Improving') {
-      return <span className="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1"><TrendingUp size={12} /> Improving (+3.0%)</span>;
+      return <span className="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1"><TrendingUp size={12} /> Improving</span>;
     }
     if (status === 'Needs Attention') {
       return <span className="px-2.5 py-1 text-[11px] font-bold rounded-full bg-amber-100 text-amber-800 flex items-center gap-1"><ShieldAlert size={12} /> Needs Attention</span>;
@@ -150,17 +184,17 @@ export default function StudentDashboard() {
             <UserCheck size={14} /> Student Performance Analytics Portal
           </span>
           <h1 className="text-2xl sm:text-3xl font-extrabold mt-2 tracking-tight">
-            Welcome back, {user?.fullName || 'Student'}!
+            Welcome back, {studentName}!
           </h1>
           <p className="text-xs sm:text-sm text-blue-100 mt-1 max-w-xl">
-            Assigned Batch: <strong className="font-mono">{batchId}</strong> • Real-time database analytics tracking your assessment progress, attendance, and batch standings.
+            Assigned Batch: <strong className="font-medium bg-white/15 px-2.5 py-0.5 rounded-md">{batchDisplayName}</strong> • Real-time database analytics tracking your assessment progress, attendance, and batch standings.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="bg-white/10 backdrop-blur-md px-4 py-2.5 rounded-xl border border-white/20 text-xs">
             <p className="text-blue-100 text-[10px] font-bold uppercase tracking-wide">Student ID</p>
-            <p className="font-mono font-extrabold text-white text-base">{user?.studentId || 'STU001'}</p>
+            <p className="font-mono font-extrabold text-white text-base">{studentDisplayId}</p>
           </div>
 
           <button
@@ -186,7 +220,7 @@ export default function StudentDashboard() {
           <div className="mt-3">
             <p className="text-2xl font-extrabold text-gray-900">{overallPerf}%</p>
             <span className="inline-block text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md mt-1">
-              {dashboardData?.performanceStatus || 'EXCELLENT'}
+              {dashboardData.performanceStatus || 'EVALUATING'}
             </span>
           </div>
         </div>
@@ -201,7 +235,7 @@ export default function StudentDashboard() {
           </div>
           <div className="mt-3">
             <p className="text-2xl font-extrabold text-gray-900">{assessmentScore}%</p>
-            <p className="text-[11px] text-gray-500 mt-1">{dashboardData?.totalAssessments || trendData.length} Assessments Taken</p>
+            <p className="text-[11px] text-gray-500 mt-1">{dashboardData.totalAssessments || trendData.length} Assessments Taken</p>
           </div>
         </div>
 
@@ -234,7 +268,9 @@ export default function StudentDashboard() {
           </div>
           <div className="mt-3">
             <p className="text-2xl font-extrabold text-gray-900">{attendancePct}%</p>
-            {attendancePct < 75 ? (
+            {totalDays === 0 ? (
+              <p className="text-[11px] text-gray-400 mt-1">No sessions logged</p>
+            ) : Number(attendancePct) < 75 ? (
               <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-md mt-1 inline-block">
                 Below 75% Limit
               </span>
@@ -257,7 +293,11 @@ export default function StudentDashboard() {
               <p className="text-2xl font-extrabold text-gray-900">#{currentRank}</p>
               <span className="text-xs text-gray-400">/ {totalBatchStudents} Students</span>
             </div>
-            <p className="text-[11px] text-amber-700 font-bold mt-1">Top {Math.round((currentRank / totalBatchStudents) * 100)}% in Batch</p>
+            <p className="text-[11px] text-amber-700 font-bold mt-1">
+              {totalBatchStudents > 0 && typeof currentRank === 'number'
+                ? `Top ${Math.round((currentRank / totalBatchStudents) * 100)}% in Batch`
+                : 'Batch Standings'}
+            </p>
           </div>
         </div>
       </div>
@@ -298,8 +338,10 @@ export default function StudentDashboard() {
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-xs text-gray-400">
-                No performance trend data available yet.
+              <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-gray-400 text-xs py-8">
+                <TrendingUp size={28} className="text-gray-300 mb-2" />
+                <p className="font-semibold text-gray-600">No performance history available yet.</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">Assessment trajectories will plot here once graded.</p>
               </div>
             )}
           </div>
@@ -315,44 +357,54 @@ export default function StudentDashboard() {
           </div>
 
           <div className="card-body pt-4 flex flex-col items-center justify-center flex-1 min-h-[280px]">
-            <div className="relative w-full h-[180px] flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={attendanceDonutData}
-                    innerRadius={55}
-                    outerRadius={80}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
-                    {attendanceDonutData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(val) => [`${val} Days`, 'Days']} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-2xl font-extrabold text-gray-900">{attendancePct}%</span>
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Present</span>
-              </div>
-            </div>
+            {attendanceDonutData.length > 0 ? (
+              <>
+                <div className="relative w-full h-[180px] flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={attendanceDonutData}
+                        innerRadius={55}
+                        outerRadius={80}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {attendanceDonutData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(val) => [`${val} Days`, 'Days']} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-2xl font-extrabold text-gray-900">{attendancePct}%</span>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase">Present</span>
+                  </div>
+                </div>
 
-            <div className="flex items-center justify-center gap-6 mt-4 text-xs font-bold text-gray-700">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" />
-                <span>Present ({presentDays} Days)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-red-500 inline-block" />
-                <span>Absent ({absentDays} Days)</span>
-              </div>
-            </div>
+                <div className="flex items-center justify-center gap-6 mt-4 text-xs font-bold text-gray-700">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" />
+                    <span>Present ({presentDays} Days)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-red-500 inline-block" />
+                    <span>Absent ({absentDays} Days)</span>
+                  </div>
+                </div>
 
-            {attendancePct < 75 && (
-              <div className="mt-4 p-2.5 rounded-xl bg-red-50 border border-red-100 text-[11px] text-red-700 font-bold flex items-center gap-2 w-full text-center justify-center">
-                <ShieldAlert size={14} className="text-red-600 flex-shrink-0" />
-                <span>Attendance Warning: Below required 75% threshold</span>
+                {totalDays > 0 && Number(attendancePct) < 75 && (
+                  <div className="mt-4 p-2.5 rounded-xl bg-red-50 border border-red-100 text-[11px] text-red-700 font-bold flex items-center gap-2 w-full text-center justify-center">
+                    <ShieldAlert size={14} className="text-red-600 flex-shrink-0" />
+                    <span>Attendance Warning: Below required 75% threshold</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-gray-400 text-xs py-8">
+                <CalendarCheck size={28} className="text-gray-300 mb-2" />
+                <p className="font-semibold text-gray-600">No attendance records logged yet.</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">Faculty session attendance logs will display here.</p>
               </div>
             )}
           </div>
@@ -385,8 +437,10 @@ export default function StudentDashboard() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-xs text-gray-400">
-                No subject performance records available.
+              <div className="flex flex-col items-center justify-center h-full min-h-[180px] text-gray-400 text-xs py-6">
+                <BarChart2 size={28} className="text-gray-300 mb-2" />
+                <p className="font-semibold text-gray-600">No Subject Performance Recorded</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">Module evaluations will appear here once submitted.</p>
               </div>
             )}
           </div>
@@ -433,7 +487,7 @@ export default function StudentDashboard() {
 
             <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
               <span>Total Coursework Assigned: <strong>{totalAss}</strong></span>
-              <span className="text-purple-600 font-bold">Keep it up!</span>
+              <span className="text-purple-600 font-bold">{completedAss === totalAss && totalAss > 0 ? 'All Completed! 🎉' : 'Keep it up!'}</span>
             </div>
           </div>
         </div>
@@ -462,7 +516,11 @@ export default function StudentDashboard() {
                 </RadarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="text-xs text-gray-400">No skill analysis data available.</div>
+              <div className="flex flex-col items-center justify-center h-full min-h-[180px] text-gray-400 text-xs py-6">
+                <Sparkles size={28} className="text-gray-300 mb-2" />
+                <p className="font-semibold text-gray-600">No Skill Analysis Data Available</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">Multidimensional skills will plot here after assessments.</p>
+              </div>
             )}
           </div>
         </div>
@@ -472,15 +530,17 @@ export default function StudentDashboard() {
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-amber-800 bg-amber-100 px-3 py-1 rounded-full">
-                Batch Standings • {batchId}
+                Batch Standings • {batchDisplayName}
               </span>
               <Trophy size={28} className="text-amber-500" />
             </div>
 
             <div className="mt-4">
-              <h3 className="text-3xl font-extrabold text-gray-900">Rank #{currentRank}</h3>
+              <h3 className="text-3xl font-extrabold text-gray-900">{currentRank !== '-' ? `Rank #${currentRank}` : 'Rank: Evaluating'}</h3>
               <p className="text-xs text-gray-600 mt-1">
-                You are currently ranked <strong>#{currentRank}</strong> out of <strong>{totalBatchStudents}</strong> students in Batch <span className="font-mono font-bold text-gray-800">{batchId}</span>.
+                {totalBatchStudents > 0
+                  ? `You are currently ranked #${currentRank} out of ${totalBatchStudents} students in ${batchDisplayName}.`
+                  : `Assigned to ${batchDisplayName}. Rankings will generate upon grading.`}
               </p>
             </div>
 
@@ -492,7 +552,7 @@ export default function StudentDashboard() {
 
               <div className="p-3 bg-white rounded-xl border border-amber-200/60 shadow-2xs">
                 <p className="text-[10px] text-gray-400 font-bold uppercase">Performance Status</p>
-                <p className="text-xs font-extrabold text-emerald-600 mt-1">{dashboardData?.performanceStatus || 'EXCELLENT'}</p>
+                <p className="text-xs font-extrabold text-emerald-600 mt-1">{dashboardData.performanceStatus || 'EVALUATING'}</p>
               </div>
             </div>
           </div>
@@ -514,83 +574,96 @@ export default function StudentDashboard() {
         <div className="card-header flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-gray-100 pb-4 bg-gradient-to-r from-amber-50/40 to-transparent">
           <div>
             <h3 className="text-base font-extrabold text-gray-900 flex items-center gap-2">
-              <Trophy size={20} className="text-amber-500" /> Batch Leaderboard ({batchId})
+              <Trophy size={20} className="text-amber-500" /> Batch Leaderboard ({batchDisplayName})
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">Public academic ranking performance for students in your assigned batch</p>
           </div>
-          <span className="badge-amber text-xs font-mono font-bold">Batch: {batchId}</span>
+          <span className="badge-amber text-xs font-mono font-bold">Batch: {batchDisplayName}</span>
         </div>
 
         <div className="card-body p-0 overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50/80 text-[11px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100">
-                <th className="py-3 px-4">Rank</th>
-                <th className="py-3 px-4">Student ID</th>
-                <th className="py-3 px-4">Student Name</th>
-                <th className="py-3 px-4 text-center">Overall Score</th>
-                <th className="py-3 px-4 text-right">Performance Level</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 text-xs">
-              {leaderboard.map((item) => {
-                const isCurrentUser = item.studentId === user?.studentId || item.studentId === user?.id || item.isCurrent;
-                return (
-                  <tr
-                    key={item.studentId || item.rank}
-                    className={`transition-colors ${
-                      isCurrentUser
-                        ? 'bg-amber-50/80 font-bold border-l-4 border-l-amber-500'
-                        : 'hover:bg-gray-50/60'
-                    }`}
-                  >
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-2">
-                        {item.rank === 1 ? (
-                          <span className="w-6 h-6 rounded-full bg-amber-100 text-amber-800 font-extrabold text-xs flex items-center justify-center border border-amber-300">🥇 1</span>
-                        ) : item.rank === 2 ? (
-                          <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 font-extrabold text-xs flex items-center justify-center border border-slate-300">🥈 2</span>
-                        ) : item.rank === 3 ? (
-                          <span className="w-6 h-6 rounded-full bg-amber-900/10 text-amber-900 font-extrabold text-xs flex items-center justify-center border border-amber-200">🥉 3</span>
-                        ) : (
-                          <span className="font-mono font-bold text-gray-600 text-xs px-2 py-0.5 rounded bg-gray-100">#{item.rank}</span>
-                        )}
-                      </div>
-                    </td>
+          {leaderboard.length > 0 ? (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50/80 text-[11px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100">
+                  <th className="py-3 px-4">Rank</th>
+                  <th className="py-3 px-4">Student ID</th>
+                  <th className="py-3 px-4">Student Name</th>
+                  <th className="py-3 px-4 text-center">Overall Score</th>
+                  <th className="py-3 px-4 text-right">Performance Level</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 text-xs">
+                {leaderboard.map((item, idx) => {
+                  const isCurrentUser =
+                    (item.id && user?.id && item.id === user.id) ||
+                    (item.studentId && studentDisplayId && item.studentId === studentDisplayId) ||
+                    (item.studentId && user?.studentId && item.studentId === user?.studentId) ||
+                    (item.studentName && studentName && item.studentName === studentName);
 
-                    <td className="py-3.5 px-4 font-mono font-bold text-gray-700">
-                      {item.studentId || 'STU001'}
-                    </td>
+                  return (
+                    <tr
+                      key={item.id || (item.studentId ? `${item.studentId}-${idx}` : `rank-${item.rank}-${idx}`)}
+                      className={`transition-colors ${
+                        isCurrentUser
+                          ? 'bg-amber-50/80 font-bold border-l-4 border-l-amber-500'
+                          : 'hover:bg-gray-50/60'
+                      }`}
+                    >
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-2">
+                          {item.rank === 1 ? (
+                            <span className="w-6 h-6 rounded-full bg-amber-100 text-amber-800 font-extrabold text-xs flex items-center justify-center border border-amber-300">🥇 1</span>
+                          ) : item.rank === 2 ? (
+                            <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 font-extrabold text-xs flex items-center justify-center border border-slate-300">🥈 2</span>
+                          ) : item.rank === 3 ? (
+                            <span className="w-6 h-6 rounded-full bg-amber-900/10 text-amber-900 font-extrabold text-xs flex items-center justify-center border border-amber-200">🥉 3</span>
+                          ) : (
+                            <span className="font-mono font-bold text-gray-600 text-xs px-2 py-0.5 rounded bg-gray-100">#{item.rank}</span>
+                          )}
+                        </div>
+                      </td>
 
-                    <td className="py-3.5 px-4 font-semibold text-gray-900">
-                      <div className="flex items-center gap-2">
-                        <span>{item.studentName}</span>
-                        {isCurrentUser && (
-                          <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-500 text-white shadow-2xs">
-                            You
-                          </span>
-                        )}
-                      </div>
-                    </td>
+                      <td className="py-3.5 px-4 font-mono font-bold text-gray-700">
+                        {item.studentId || '-'}
+                      </td>
 
-                    <td className="py-3.5 px-4 text-center font-mono font-extrabold text-gray-900">
-                      {item.overallPercentage}%
-                    </td>
+                      <td className="py-3.5 px-4 font-semibold text-gray-900">
+                        <div className="flex items-center gap-2">
+                          <span>{item.studentName || 'Student'}</span>
+                          {isCurrentUser && (
+                            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-500 text-white shadow-2xs">
+                              You
+                            </span>
+                          )}
+                        </div>
+                      </td>
 
-                    <td className="py-3.5 px-4 text-right">
-                      <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${
-                        item.performanceStatus === 'EXCELLENT' ? 'bg-emerald-100 text-emerald-800' :
-                        item.performanceStatus === 'GOOD' ? 'bg-blue-100 text-blue-800' :
-                        'bg-amber-100 text-amber-800'
-                      }`}>
-                        {item.performanceStatus || 'EXCELLENT'}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      <td className="py-3.5 px-4 text-center font-mono font-extrabold text-gray-900">
+                        {item.overallPercentage != null ? `${Number(item.overallPercentage).toFixed(1)}%` : '0.0%'}
+                      </td>
+
+                      <td className="py-3.5 px-4 text-right">
+                        <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${
+                          item.performanceStatus === 'EXCELLENT' ? 'bg-emerald-100 text-emerald-800' :
+                          item.performanceStatus === 'GOOD' ? 'bg-blue-100 text-blue-800' :
+                          'bg-amber-100 text-amber-800'
+                        }`}>
+                          {item.performanceStatus || 'EVALUATING'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <div className="p-8 text-center text-gray-500 text-xs">
+              <Trophy size={28} className="mx-auto text-gray-300 mb-2" />
+              <p className="font-semibold text-gray-700">No Batch Rankings Recorded Yet</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">Leaderboard standings will populate once batch assessments are graded.</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -603,7 +676,7 @@ export default function StudentDashboard() {
               <BookOpen size={18} className="text-blue-600" />
               <h3 className="text-sm font-bold text-gray-800">Course Materials & Downloads</h3>
             </div>
-            <span className="text-xs text-gray-400 font-mono">Batch: {batchId}</span>
+            <span className="text-xs text-gray-500 font-medium">{batchDisplayName}</span>
           </div>
 
           <div className="card-body p-0">
@@ -634,7 +707,7 @@ export default function StudentDashboard() {
               </div>
             ) : (
               <div className="p-8 text-center text-xs text-gray-400">
-                No study materials uploaded for Batch '{batchId}' yet.
+                No study materials uploaded for '{batchDisplayName}' yet.
               </div>
             )}
           </div>
@@ -647,6 +720,7 @@ export default function StudentDashboard() {
               <ClipboardList size={18} className="text-purple-600" />
               <h3 className="text-sm font-bold text-gray-800">Pending & Active Assignments</h3>
             </div>
+            <span className="text-xs text-gray-500 font-medium">{batchDisplayName}</span>
           </div>
 
           <div className="card-body p-0">
@@ -676,7 +750,7 @@ export default function StudentDashboard() {
               </div>
             ) : (
               <div className="p-8 text-center text-xs text-gray-400">
-                No active assignments assigned yet.
+                No active assignments assigned for '{batchDisplayName}' yet.
               </div>
             )}
           </div>

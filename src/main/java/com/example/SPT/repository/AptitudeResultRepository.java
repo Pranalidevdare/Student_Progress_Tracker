@@ -46,4 +46,18 @@ public interface AptitudeResultRepository
     Optional<AptitudeResult> findTopByCandidateIdAndStatusOrderByCreatedAtDesc(
             String candidateId,
             String status);
+
+    // Get latest attempt by candidate IDs and statuses
+    Optional<AptitudeResult> findTopByCandidateIdInAndStatusInOrderByCreatedAtDesc(
+            List<String> candidateIds,
+            List<String> statuses);
+
+    // Get latest attempt across candidate IDs
+    Optional<AptitudeResult> findTopByCandidateIdInOrderByCreatedAtDesc(
+            List<String> candidateIds);
+
+    // Get latest attempt by candidate IDs and specific status
+    Optional<AptitudeResult> findTopByCandidateIdInAndStatusOrderByCreatedAtDesc(
+            List<String> candidateIds,
+            String status);
 }

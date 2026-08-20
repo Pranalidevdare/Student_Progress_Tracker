@@ -33,5 +33,9 @@ public class BatchResponse {
 
     private Integer enrolledCount;
 
+    private Integer availableSeats;
+
+    private String trainerRole;
+
     private BatchStatus status;
 }

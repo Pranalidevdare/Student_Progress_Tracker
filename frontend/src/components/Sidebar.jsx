@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard,
+  Layers,
   User,
   ClipboardList,
   FileText,
@@ -105,10 +106,16 @@ export default function Sidebar({ isOpen, onClose }) {
 
             {/* ADMIN ONLY LINKS */}
             {isAdmin && (
-              <NavLink to="/admin/dashboard" onClick={handleLinkClick} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                <ShieldCheck size={18} className="flex-shrink-0" />
-                <span className="truncate">Master Roster & Verification</span>
-              </NavLink>
+              <>
+                <NavLink to="/batches" onClick={handleLinkClick} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                  <Layers size={18} className="flex-shrink-0" />
+                  <span className="truncate">Batch Management</span>
+                </NavLink>
+                <NavLink to="/admin/dashboard" onClick={handleLinkClick} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                  <ShieldCheck size={18} className="flex-shrink-0" />
+                  <span className="truncate">Master Roster & Verification</span>
+                </NavLink>
+              </>
             )}
 
             {/* TRAINER AND STUDENT COMMON / ROLE CUSTOM LINKS */}
@@ -140,6 +147,11 @@ export default function Sidebar({ isOpen, onClose }) {
             {/* TRAINER MANAGEMENT LINKS */}
             {isTrainer && (
               <>
+                <NavLink to="/batches" onClick={handleLinkClick} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                  <Layers size={18} className="flex-shrink-0" />
+                  <span className="truncate">My Batches</span>
+                </NavLink>
+
                 <NavLink to="/assignments" onClick={handleLinkClick} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
                   <ClipboardList size={18} className="flex-shrink-0" />
                   <span className="truncate">Manage Assignments</span>
@@ -179,7 +191,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 {isTrainer && (
                   <NavLink to="/interviews" onClick={handleLinkClick} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
                     <Award size={18} className="flex-shrink-0" />
-                    <span className="truncate">Conduct Mock Interviews</span>
+                    <span className="truncate">{user?.trainerType === 'SOFT_SKILLS' ? 'HR / Soft-Skill Interviews' : 'Technical Interviews'}</span>
                   </NavLink>
                 )}
 

@@ -30,4 +30,6 @@ public interface AttendanceService {
     StudentMonthlyAttendanceResponse getStudentMonthlyAttendance(String studentId, Integer month, Integer year, String trainerEmail);
 
     TodayAttendanceResponse getAttendanceHistory(String batchId, LocalDate date, String sessionType, String trainerEmail);
+
+    com.example.SPT.dto.response.StudentPersonalAttendanceResponse getPersonalAttendance(String userEmailOrStudentId);
 }

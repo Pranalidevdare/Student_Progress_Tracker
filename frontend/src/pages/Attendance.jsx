@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
+  getMyAttendance,
   getAttendanceByBatch,
   markAttendance,
   updateAttendance
@@ -79,12 +80,24 @@ export default function Attendance() {
     setHasError(false);
     setErrorMessage('');
     try {
-      const activeBatch = batchId || defaultBatchId || 'BATCH001';
-      const res = await getAttendanceByBatch(activeBatch);
-      if (res && res.data && Array.isArray(res.data)) {
-        setRecords(res.data);
+      if (isStudent) {
+        const res = await getMyAttendance();
+        const data = res?.data || {};
+        if (data.records && Array.isArray(data.records)) {
+          setRecords(data.records);
+        } else if (Array.isArray(data)) {
+          setRecords(data);
+        } else {
+          setRecords([]);
+        }
       } else {
-        setRecords([]);
+        const activeBatch = batchId || defaultBatchId || 'BATCH001';
+        const res = await getAttendanceByBatch(activeBatch);
+        if (res && res.data && Array.isArray(res.data)) {
+          setRecords(res.data);
+        } else {
+          setRecords([]);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch attendance:', err);
@@ -196,13 +209,8 @@ export default function Attendance() {
     }
   };
 
-  // Filter records: Students see ONLY their own attendance records
-  const displayRecords = isStudent
-    ? records.filter(r => 
-        (r.studentId && studentId && r.studentId.toLowerCase() === studentId.toLowerCase()) ||
-        (r.studentName && studentName && r.studentName.toLowerCase() === studentName.toLowerCase())
-      )
-    : records;
+  // Display records
+  const displayRecords = records;
 
   // Calculate Student Personal Attendance Analytics
   const totalDays = displayRecords.length;

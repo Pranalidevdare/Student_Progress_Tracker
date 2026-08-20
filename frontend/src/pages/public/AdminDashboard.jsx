@@ -427,13 +427,14 @@ export default function AdminDashboard() {
   const pendingDocs = applications.filter(a => a.status === 'DOCUMENTS_SUBMITTED' || a.status === 'DOCUMENTATION_PENDING');
   const homeVisitCandidates = applications.filter(a =>
     a.status === 'HR_INTERVIEW_PASSED' ||
-    a.status === 'TECHNICAL_INTERVIEW_PASSED' ||
-    a.status === 'DOCUMENTS_VERIFIED' ||
-    a.status === 'INTERVIEWS_COMPLETED' ||
-    a.status === 'HOME_VISIT_PENDING' ||
-    a.status === 'ELIGIBLE_FOR_APTITUDE'
+    a.status === 'HOME_VISIT_PENDING'
   );
-  const finalSelectionCandidates = applications.filter(a => a.status === 'HOME_VISIT_COMPLETED' || a.status === 'SELECTED' || a.status === 'BATCH_ASSIGNED' || a.status === 'DOCUMENTS_VERIFIED');
+  const finalSelectionCandidates = applications.filter(a =>
+    a.status === 'HOME_VISIT_COMPLETED' ||
+    a.status === 'HOME_VISIT_PASSED' ||
+    a.status === 'SELECTED' ||
+    a.status === 'BATCH_ASSIGNED'
+  );
   const enrolledStudents = students.length > 0 ? students : applications.filter(a => a.status === 'BATCH_ASSIGNED' || a.status === 'SELECTED');
 
   const toppersList = (topRankers.length > 0 ? topRankers : []).map((t, idx) => ({
@@ -533,7 +534,7 @@ export default function AdminDashboard() {
                 >
                   <option value="ALL">ALL STATUSES ({applications.length})</option>
                   <option value="ELIGIBLE_FOR_APTITUDE">ELIGIBLE FOR APTITUDE</option>
-                  <option value="NOT_ELIGIBLE">NOT ELIGIBLE (Income > 4L)</option>
+                  <option value="NOT_ELIGIBLE">NOT ELIGIBLE (Income &gt; 4L)</option>
                   <option value="APTITUDE_SCHEDULED">APTITUDE SCHEDULED</option>
                   <option value="APTITUDE_PASSED">APTITUDE PASSED</option>
                   <option value="DOCUMENTS_SUBMITTED">DOCUMENTS SUBMITTED</option>
@@ -733,7 +734,7 @@ export default function AdminDashboard() {
                         <td className="font-mono text-xs font-bold text-red-600">{app.applicationNumber || app.id}</td>
                         <td className="font-semibold text-gray-900 text-xs">{app.fullName}</td>
                         <td className="text-xs font-mono text-gray-600">{app.email}</td>
-                        <td><span className="badge-green text-[11px]">PASSED (TECHNICAL & HR)</span></td>
+                        <td><span className="badge-green text-[11px]">HR &amp; TECHNICAL INTERVIEWS PASSED</span></td>
                         <td>
                           <button
                             onClick={() => handleUpdateAppStatus(app.id, 'HOME_VISIT_COMPLETED')}

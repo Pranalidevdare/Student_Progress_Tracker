@@ -949,6 +949,7 @@ public DocumentationResponse submitDocumentation(
         CandidateDocumentation documentation =
                 documentationRepository
                         .findByApplicationId(applicationId)
+                        .or(() -> documentationRepository.findByApplicationNumber(applicationId))
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "Documentation not found for application: "

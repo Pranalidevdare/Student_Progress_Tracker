@@ -13,10 +13,10 @@ export default function Feedback() {
   const roleStr = String(user?.role || '').toUpperCase();
   const isStudent = roleStr.includes('STUDENT');
 
-  const studentId = user?.id || user?.studentId || user?.email || 'STU001';
-  const studentName = user?.fullName || 'Student Candidate';
-  const studentBatchId = user?.batchId || user?.batch || 'BATCH001';
-  const trainerId = user?.id || localStorage.getItem('trainerId') || '650123456789abcdef012345';
+  const studentId = user?.studentId || user?.id || user?.email || '';
+  const studentName = user?.fullName || 'Student';
+  const studentBatchId = user?.batchId || user?.batch || '';
+  const trainerId = user?.id || localStorage.getItem('trainerId') || '';
 
   const [activeTab, setActiveTab] = useState('GIVE_FEEDBACK'); // GIVE_FEEDBACK, FROM_TRAINERS, MY_FEEDBACK, QUERIES
   const [loading, setLoading] = useState(true);

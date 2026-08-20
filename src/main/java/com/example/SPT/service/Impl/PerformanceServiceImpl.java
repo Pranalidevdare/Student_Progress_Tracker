@@ -20,6 +20,7 @@ public class PerformanceServiceImpl implements PerformanceService {
 
     private final PerformanceRepository performanceRepository;
     private final PerformanceMapper performanceMapper;
+    private final com.example.SPT.repository.StudentRepository studentRepository;
 
     @Override
     public PerformanceResponse getPerformance(String studentId) {
@@ -40,18 +41,32 @@ public class PerformanceServiceImpl implements PerformanceService {
         }
 
         if (performance == null) {
+            com.example.SPT.entity.Student st = null;
+            if (studentId != null && studentRepository != null) {
+                st = studentRepository.findById(studentId)
+                        .or(() -> studentRepository.findByStudentId(studentId))
+                        .or(() -> studentRepository.findByEmail(studentId))
+                        .orElse(null);
+            }
+
+            String name = (st != null && st.getFirstName() != null)
+                    ? (st.getFirstName() + " " + (st.getLastName() != null ? st.getLastName() : "")).trim()
+                    : "Student";
+            String sid = (st != null && st.getStudentId() != null) ? st.getStudentId() : studentId;
+            String bid = (st != null && st.getBatchId() != null) ? st.getBatchId() : null;
+
             performance = Performance.builder()
-                    .studentId(studentId != null ? studentId : "STU001")
-                    .studentName("Student Candidate")
-                    .batchId("BATCH001")
-                    .attendancePercentage(95.0)
-                    .assignmentPercentage(90.0)
-                    .assessmentPercentage(90.0)
-                    .interviewPercentage(85.0)
-                    .overallPercentage(90.0)
+                    .studentId(sid)
+                    .studentName(name)
+                    .batchId(bid)
+                    .attendancePercentage(0.0)
+                    .assignmentPercentage(0.0)
+                    .assessmentPercentage(0.0)
+                    .interviewPercentage(0.0)
+                    .overallPercentage(0.0)
                     .rank(1)
-                    .performanceStatus(PerformanceStatus.EXCELLENT)
-                    .remarks("Consistent performance across coursework and assessments.")
+                    .performanceStatus(PerformanceStatus.AVERAGE)
+                    .remarks("No evaluations recorded yet.")
                     .build();
         }
 
@@ -78,17 +93,31 @@ public class PerformanceServiceImpl implements PerformanceService {
         }
 
         if (performance == null) {
+            com.example.SPT.entity.Student st = null;
+            if (studentId != null && studentRepository != null) {
+                st = studentRepository.findById(studentId)
+                        .or(() -> studentRepository.findByStudentId(studentId))
+                        .or(() -> studentRepository.findByEmail(studentId))
+                        .orElse(null);
+            }
+
+            String name = (st != null && st.getFirstName() != null)
+                    ? (st.getFirstName() + " " + (st.getLastName() != null ? st.getLastName() : "")).trim()
+                    : "Student";
+            String sid = (st != null && st.getStudentId() != null) ? st.getStudentId() : studentId;
+            String bid = (st != null && st.getBatchId() != null) ? st.getBatchId() : null;
+
             performance = Performance.builder()
-                    .studentId(studentId != null ? studentId : "STU001")
-                    .studentName("Student Candidate")
-                    .batchId("BATCH001")
-                    .attendancePercentage(95.0)
-                    .assignmentPercentage(90.0)
-                    .assessmentPercentage(90.0)
-                    .interviewPercentage(85.0)
-                    .overallPercentage(90.0)
+                    .studentId(sid)
+                    .studentName(name)
+                    .batchId(bid)
+                    .attendancePercentage(0.0)
+                    .assignmentPercentage(0.0)
+                    .assessmentPercentage(0.0)
+                    .interviewPercentage(0.0)
+                    .overallPercentage(0.0)
                     .rank(1)
-                    .performanceStatus(PerformanceStatus.EXCELLENT)
+                    .performanceStatus(PerformanceStatus.AVERAGE)
                     .remarks("Auto-initialized performance record.")
                     .createdAt(LocalDateTime.now())
                     .build();

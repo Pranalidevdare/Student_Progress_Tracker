@@ -51,6 +51,10 @@ public class ApplicationResponse {
 
     private String adminRemarks;
 
+    private String technicalInterviewRemarks;
+
+    private String hrInterviewRemarks;
+
     // Batch Assignment
 
     private String assignedBatchId;

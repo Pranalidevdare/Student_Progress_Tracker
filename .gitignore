@@ -51,3 +51,6 @@ uploads/
 
 ### Frontend Build Output ###
 frontend/dist/
+
+### Scratch / Local test scripts ###
+scratch/

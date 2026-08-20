@@ -15,6 +15,15 @@ public class StudentDashboardResponse {
 
     // Student Profile
     private StudentResponse student;
+    private String studentId;
+    private String studentName;
+    private String email;
+
+    // Batch Information
+    private String batchId;
+    private String batchName;
+    private String courseName;
+    private BatchInfo batch;
 
     // Attendance
     private Double attendancePercentage;
@@ -31,11 +40,14 @@ public class StudentDashboardResponse {
     // Assessment
     private Integer totalAssessments;
     private Double assessmentPercentage;
+    private Double averageAssessment; // alias for assessmentPercentage
 
     // Performance & Analytics
     private Double overallPerformance;
     private Integer currentRank;
+    private Integer batchRank; // alias for currentRank
     private Integer totalBatchStudents;
+    private Integer batchSize; // alias for totalBatchStudents
     private String performanceStatus;
     private String trendStatus; // "Improving", "Stable", "Needs Attention"
 
@@ -49,6 +61,16 @@ public class StudentDashboardResponse {
     private List<NoticeResponse> latestNotices;
     private List<GuestSessionResponse> guestSessions;
     private InterviewResponse upcomingInterview;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class BatchInfo {
+        private String id;
+        private String name;
+        private String courseName;
+    }
 
     @Data
     @Builder

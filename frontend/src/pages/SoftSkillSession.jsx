@@ -18,8 +18,8 @@ export default function SoftSkillSession() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const studentId = user?.id || user?.studentId || user?.email || 'STU001';
-  const batchId = user?.batchId || user?.batch || 'BATCH001';
+  const studentId = user?.studentId || user?.id || user?.email || '';
+  const batchId = user?.batchId || user?.batch || localStorage.getItem('batchId') || '';
 
   // Determine current view mode: 'LANDING' | 'ASSIGNMENTS' | 'ASSESSMENTS' | 'MATERIALS'
   const pathname = location.pathname;

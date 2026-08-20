@@ -1,5 +1,14 @@
 import api from './axios';
 
+export const getMyAttendance = () =>
+  api.get('/api/student/attendance');
+
+export const getMyAttendanceRecords = () =>
+  api.get('/api/student/attendance/records');
+
+export const getStudentPersonalAttendance = (studentId) =>
+  api.get(`/api/student/attendance/${studentId}`);
+
 export const getAttendanceByBatch = (batchId) =>
   api.get(`/api/trainer/attendance/batch/${batchId}`);
 

@@ -2,10 +2,17 @@ package com.example.SPT.service;
 
 import java.util.List;
 
+import com.example.SPT.dto.request.CreateBatchRequest;
 import com.example.SPT.dto.response.BatchResponse;
+import com.example.SPT.dto.response.StudentResponse;
 import com.example.SPT.enums.BatchStatus;
 
 public interface BatchService {
+
+    /**
+     * Create a new batch and assign eligible students
+     */
+    BatchResponse createBatch(CreateBatchRequest request);
 
     /**
      * Get all batches
@@ -26,6 +33,16 @@ public interface BatchService {
      * Get batch by name
      */
     BatchResponse getBatchByName(String batchName);
+
+    /**
+     * Get batches assigned to a specific trainer (Technical or Soft Skills)
+     */
+    List<BatchResponse> getBatchesByTrainer(String trainerId);
+
+    /**
+     * Get students enrolled in a specific batch
+     */
+    List<StudentResponse> getStudentsInBatch(String batchId);
 
     /**
      * Get batches by status

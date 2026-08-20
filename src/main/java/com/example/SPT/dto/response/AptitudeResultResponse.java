@@ -64,4 +64,10 @@ public class AptitudeResultResponse {
     private LocalDateTime submittedAt;
 
     private LocalDateTime evaluatedAt;
+
+    private LocalDateTime expiresAt;
+
+    private Long durationMinutes;
+
+    private Long remainingSeconds;
 }

@@ -112,6 +112,8 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .interestedInITEP(application.getInterestedInITEP())
                 .joinedWhatsappGroup(application.getJoinedWhatsappGroup())
                 .adminRemarks(application.getAdminRemarks())
+                .technicalInterviewRemarks(application.getTechnicalInterviewRemarks())
+                .hrInterviewRemarks(application.getHrInterviewRemarks())
                 .assignedBatchId(application.getAssignedBatchId())
                 .assignedBatchName(application.getAssignedBatchName())
                 .createdAt(application.getCreatedAt())
@@ -339,7 +341,7 @@ public class ApplicationServiceImpl implements ApplicationService {
     }
 
     private void validateStatusTransition(ApplicationStatus currentStatus, ApplicationStatus nextStatus) {
-        if (currentStatus == null) {
+        if (currentStatus == null || nextStatus == null || currentStatus == nextStatus) {
             return;
         }
 
@@ -351,21 +353,75 @@ public class ApplicationServiceImpl implements ApplicationService {
             throw new IllegalStateException("Batch-assigned applications are in a terminal state");
         }
 
+        // Prevent proceeding if candidate failed a previous stage
+        if (currentStatus == ApplicationStatus.TECHNICAL_INTERVIEW_FAILED
+                || currentStatus == ApplicationStatus.HR_INTERVIEW_FAILED
+                || currentStatus == ApplicationStatus.DOCUMENTS_REJECTED
+                || currentStatus == ApplicationStatus.APTITUDE_FAILED
+                || currentStatus == ApplicationStatus.NOT_ELIGIBLE) {
+            if (nextStatus != ApplicationStatus.REJECTED && nextStatus != currentStatus) {
+                throw new IllegalStateException("Candidate failed an earlier stage (" + currentStatus + ") and cannot proceed to " + nextStatus);
+            }
+        }
+
         if (currentStatus == ApplicationStatus.HOME_VISIT_PASSED
                 || currentStatus == ApplicationStatus.HOME_VISIT_REJECTED) {
-            throw new IllegalStateException("This application has already completed home visit processing");
+            if (nextStatus != ApplicationStatus.SELECTED && nextStatus != ApplicationStatus.BATCH_ASSIGNED && nextStatus != currentStatus) {
+                throw new IllegalStateException("This application has already completed home visit processing");
+            }
+        }
+
+        // Technical Interview stage: requires verified documents
+        if (nextStatus == ApplicationStatus.TECHNICAL_INTERVIEW_SCHEDULED
+                || nextStatus == ApplicationStatus.TECHNICAL_INTERVIEW_PASSED
+                || nextStatus == ApplicationStatus.TECHNICAL_INTERVIEW_FAILED) {
+            if (currentStatus != ApplicationStatus.DOCUMENTS_VERIFIED
+                    && currentStatus != ApplicationStatus.TECHNICAL_INTERVIEW_SCHEDULED
+                    && currentStatus != ApplicationStatus.TECHNICAL_INTERVIEW_PASSED
+                    && currentStatus != ApplicationStatus.TECHNICAL_INTERVIEW_FAILED) {
+                throw new IllegalStateException("Technical Interview requires verified documents (current status: " + currentStatus + ")");
+            }
+        }
+
+        // HR / Soft-Skill Interview stage: requires passed Technical Interview
+        if (nextStatus == ApplicationStatus.HR_INTERVIEW_SCHEDULED
+                || nextStatus == ApplicationStatus.HR_INTERVIEW_PASSED
+                || nextStatus == ApplicationStatus.HR_INTERVIEW_FAILED) {
+            if (currentStatus != ApplicationStatus.TECHNICAL_INTERVIEW_PASSED
+                    && currentStatus != ApplicationStatus.HR_INTERVIEW_SCHEDULED
+                    && currentStatus != ApplicationStatus.HR_INTERVIEW_PASSED
+                    && currentStatus != ApplicationStatus.HR_INTERVIEW_FAILED) {
+                throw new IllegalStateException("HR/Soft-Skill Interview requires passed Technical Interview (current status: " + currentStatus + ")");
+            }
+        }
+
+        // Home Visit stage: requires passed HR and Technical Interviews
+        if (nextStatus == ApplicationStatus.HOME_VISIT_PENDING
+                || nextStatus == ApplicationStatus.HOME_VISIT_COMPLETED) {
+            if (currentStatus != ApplicationStatus.HR_INTERVIEW_PASSED
+                    && currentStatus != ApplicationStatus.HOME_VISIT_PENDING
+                    && currentStatus != ApplicationStatus.HOME_VISIT_COMPLETED) {
+                throw new IllegalStateException("Home visit can only be initiated after candidate has passed both Technical and HR interviews (current status: " + currentStatus + ")");
+            }
         }
 
         if (nextStatus == ApplicationStatus.HOME_VISIT_PASSED
-                && currentStatus != ApplicationStatus.HOME_VISIT_COMPLETED
-                && currentStatus != ApplicationStatus.HOME_VISIT_PENDING) {
-            throw new IllegalStateException("Home visit can only be passed after home visit is pending or completed");
+                || nextStatus == ApplicationStatus.HOME_VISIT_REJECTED) {
+            if (currentStatus != ApplicationStatus.HOME_VISIT_COMPLETED
+                    && currentStatus != ApplicationStatus.HOME_VISIT_PENDING
+                    && currentStatus != ApplicationStatus.HR_INTERVIEW_PASSED) {
+                throw new IllegalStateException("Home visit decision can only be recorded after home visit stage is active (current status: " + currentStatus + ")");
+            }
         }
 
-        if (nextStatus == ApplicationStatus.HOME_VISIT_REJECTED
-                && currentStatus != ApplicationStatus.HOME_VISIT_COMPLETED
-                && currentStatus != ApplicationStatus.HOME_VISIT_PENDING) {
-            throw new IllegalStateException("Home visit can only be rejected after home visit is pending or completed");
+        // Final Selection stage: requires completed home visit
+        if (nextStatus == ApplicationStatus.SELECTED) {
+            if (currentStatus != ApplicationStatus.HOME_VISIT_COMPLETED
+                    && currentStatus != ApplicationStatus.HOME_VISIT_PASSED
+                    && currentStatus != ApplicationStatus.SELECTED
+                    && currentStatus != ApplicationStatus.BATCH_ASSIGNED) {
+                throw new IllegalStateException("Final selection requires completed home visit (current status: " + currentStatus + ")");
+            }
         }
     }
     
@@ -406,7 +462,7 @@ public class ApplicationServiceImpl implements ApplicationService {
             return studentMapper.toResponse(existingStudent.get());
         }
 
-        String temporaryPassword = "Temp@" + Long.toHexString(System.currentTimeMillis()).toUpperCase();
+        String temporaryPassword = "student123";
         String encodedPassword = new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode(temporaryPassword);
 
         User user = User.builder()
