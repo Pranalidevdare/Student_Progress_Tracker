@@ -431,6 +431,10 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         Application application = getApplication(applicationId);
 
+        if (application.getStatus() == ApplicationStatus.ENROLLED || studentRepository.existsByEmail(application.getEmail())) {
+            throw new ResourceAlreadyExistsException("Application has already been converted to a Student.");
+        }
+
         if (application.getStatus() != ApplicationStatus.HOME_VISIT_PASSED
                 && application.getStatus() != ApplicationStatus.HOME_VISIT_COMPLETED
                 && application.getStatus() != ApplicationStatus.SELECTED
@@ -457,35 +461,46 @@ public class ApplicationServiceImpl implements ApplicationService {
                     "Assigned batch is not active. Current status: " + batch.getStatus());
         }
 
-        Optional<Student> existingStudent = studentRepository.findByEmail(application.getEmail());
-        if (existingStudent.isPresent()) {
-            return studentMapper.toResponse(existingStudent.get());
-        }
-
         String temporaryPassword = "student123";
         String encodedPassword = new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode(temporaryPassword);
 
-        User user = User.builder()
-                .fullName(application.getFullName())
-                .email(application.getEmail())
-                .password(encodedPassword)
-                .phone(application.getMobile())
-                .role(Role.STUDENT)
-                .enabled(true)
-                .mustChangePassword(true)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
+        User user = userRepository.findByEmail(application.getEmail())
+                .or(() -> userRepository.findByEmail(application.getEmail().toLowerCase()))
+                .orElse(null);
 
-        userRepository.save(user);
+        if (user != null) {
+            user.setFullName(application.getFullName());
+            user.setPhone(application.getMobile());
+            user.setRole(Role.STUDENT);
+            user.setEnabled(true);
+            user.setPassword(encodedPassword);
+            user.setMustChangePassword(true);
+            user.setUpdatedAt(LocalDateTime.now());
+        } else {
+            user = User.builder()
+                    .fullName(application.getFullName())
+                    .email(application.getEmail())
+                    .password(encodedPassword)
+                    .phone(application.getMobile())
+                    .role(Role.STUDENT)
+                    .enabled(true)
+                    .mustChangePassword(true)
+                    .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
+                    .build();
+        }
 
-        emailService.sendStudentCredentialsEmail(
-                application.getEmail(),
-                application.getFullName(),
-                temporaryPassword,
-                "http://localhost:5173/login");
+        User savedUser = userRepository.save(user);
+
+        // Generate unique Student ID
+        String studentId;
+        do {
+            long seq = sequenceGeneratorService.generateSequence("student_sequence");
+            studentId = String.format("STU%04d", seq);
+        } while (studentRepository.existsByStudentId(studentId));
 
         Student student = new Student();
+        student.setStudentId(studentId);
         student.setFirstName(extractFirstName(application.getFullName()));
         student.setLastName(extractLastName(application.getFullName()));
         student.setEmail(application.getEmail());
@@ -494,19 +509,6 @@ public class ApplicationServiceImpl implements ApplicationService {
         student.setBranch(application.getBranch());
         student.setActive(true);
         student.setSelectionStatus(SelectionStatus.SELECTED);
-
-        /*
-         * Candidate has completed the selection process.
-         * Therefore, the candidate becomes a student.
-         */
-        student.setSelectionStatus(SelectionStatus.SELECTED);
-
-        if (student.getStudentId() == null || student.getStudentId().isBlank()) {
-            long count = studentRepository.count();
-            student.setStudentId(String.format("STU%03d", count + 1));
-        }
-
-        // Set batch assignment from application
         student.setBatchId(application.getAssignedBatchId());
         student.setBatchName(application.getAssignedBatchName());
 
@@ -516,9 +518,21 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         Student savedStudent = studentRepository.save(student);
 
-        application.setStatus(ApplicationStatus.BATCH_ASSIGNED);
+        application.setStatus(ApplicationStatus.ENROLLED);
+        application.setUserId(savedUser.getId());
         application.setUpdatedAt(now);
         applicationRepository.save(application);
+
+        try {
+            emailService.sendStudentCredentialsEmail(
+                    application.getEmail(),
+                    application.getFullName(),
+                    studentId,
+                    temporaryPassword,
+                    "http://localhost:5173/login");
+        } catch (Exception e) {
+            System.err.println("Student credentials email warning: " + e.getMessage());
+        }
 
         try {
             emailService.sendOfferLetterEmail(

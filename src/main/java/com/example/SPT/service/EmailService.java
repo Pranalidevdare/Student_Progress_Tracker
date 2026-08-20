@@ -42,6 +42,13 @@ public interface EmailService {
             String temporaryPassword,
             String loginUrl);
 
+    void sendStudentCredentialsEmail(
+            String to,
+            String studentName,
+            String studentId,
+            String temporaryPassword,
+            String loginUrl);
+
     void sendBatchChangeEmail(
             String to,
             String studentName,

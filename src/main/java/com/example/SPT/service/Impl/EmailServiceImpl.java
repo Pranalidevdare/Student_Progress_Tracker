@@ -193,16 +193,22 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendStudentCredentialsEmail(String to, String studentName, String temporaryPassword, String loginUrl) {
+        sendStudentCredentialsEmail(to, studentName, "N/A", temporaryPassword, loginUrl);
+    }
+
+    @Override
+    public void sendStudentCredentialsEmail(String to, String studentName, String studentId, String temporaryPassword, String loginUrl) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(adminEmail);
         message.setTo(to);
-        message.setSubject("Your Student Portal Credentials");
+        message.setSubject("Your Student Portal Account Has Been Created");
         message.setText("Dear " + studentName + ",\n\n"
-                + "Your student account has been created successfully.\n\n"
-                + "Email: " + to + "\n"
-                + "Temporary Password: " + temporaryPassword + "\n\n"
-                + "Please sign in at: " + (loginUrl != null && !loginUrl.isBlank() ? loginUrl : "http://localhost:5173/login") + "\n"
-                + "You will be required to change your password on first login.\n\n"
+                + "Your application has been successfully selected and converted into a Student account. Please log in using the temporary credentials and change your password on first login.\n\n"
+                + "Student Name: " + studentName + "\n"
+                + "Student ID: " + (studentId != null ? studentId : "N/A") + "\n\n"
+                + "Login Email:\n" + to + "\n\n"
+                + "Temporary Password:\n" + temporaryPassword + "\n\n"
+                + "Student Portal:\n" + (loginUrl != null && !loginUrl.isBlank() ? loginUrl : "http://localhost:5173/login") + "\n\n"
                 + "Regards,\nInfoBeans Foundation Team");
         try {
             mailSender.send(message);

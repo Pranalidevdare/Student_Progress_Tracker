@@ -30,8 +30,8 @@ export default function Login() {
         const roleName = String(data.role || 'STUDENT').toUpperCase();
 
         if (data.mustChangePassword) {
-          toast.error('Password change required before continuing. Please update your password in the app.');
-          setError('Your password must be changed before you can continue.');
+          toast('First-time login: Please set a new password to continue.', { icon: '🔐' });
+          navigate('/change-password');
           return;
         }
 

@@ -172,9 +172,8 @@ public class AdminApplicationController {
         return ResponseEntity.ok(response);
     }
     
- // CREATE STUDENT FROM SELECTED APPLICATION
-
-    @PostMapping("/{id}/create-student")
+    // CREATE / CONVERT STUDENT FROM SELECTED APPLICATION
+    @PostMapping({ "/{id}/create-student", "/{id}/convert-to-student" })
     public ResponseEntity<StudentResponse> createStudentFromSelectedApplication(
             @PathVariable String id) {
 

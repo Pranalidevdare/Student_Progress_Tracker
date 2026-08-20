@@ -64,6 +64,7 @@ export default function AdminDashboard() {
   const [batchChangeModalOpen, setBatchChangeModalOpen] = useState(false);
   const [batchChangeCandidate, setBatchChangeCandidate] = useState(null);
   const [newBatchIdForChange, setNewBatchIdForChange] = useState(null);
+  const [convertingId, setConvertingId] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -352,6 +353,35 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleConvertToStudent = async (app) => {
+    if (!app) return;
+
+    if (!app.assignedBatchId) {
+      toast.error('Please assign a batch to this candidate before converting to a Student account.');
+      setBatchAssignmentCandidate(app);
+      setBatchModalOpen(true);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to convert "${app.fullName || 'this candidate'}" into an active Student account?\n\nThis will generate their unique Student ID, create login credentials (temporary password: student123), and send their welcome email.`
+    );
+    if (!confirmed) return;
+
+    setConvertingId(app.id);
+    try {
+      await applicationApi.createStudent(app.id);
+      toast.success(`Candidate "${app.fullName || ''}" successfully converted to Student! Login credentials emailed.`);
+      await fetchData();
+    } catch (err) {
+      console.error('Student conversion error:', err);
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Failed to convert candidate to Student.';
+      toast.error(msg);
+    } finally {
+      setConvertingId(null);
+    }
+  };
+
   const handleBatchAssignment = async () => {
     if (!batchAssignmentCandidate) {
       toast.error('No candidate selected');
@@ -433,7 +463,8 @@ export default function AdminDashboard() {
     a.status === 'HOME_VISIT_COMPLETED' ||
     a.status === 'HOME_VISIT_PASSED' ||
     a.status === 'SELECTED' ||
-    a.status === 'BATCH_ASSIGNED'
+    a.status === 'BATCH_ASSIGNED' ||
+    a.status === 'ENROLLED'
   );
   const enrolledStudents = students.length > 0 ? students : applications.filter(a => a.status === 'BATCH_ASSIGNED' || a.status === 'SELECTED');
 
@@ -830,28 +861,54 @@ export default function AdminDashboard() {
                           )}
                         </td>
                         <td className="text-xs">
-                          {app.assignedBatchId ? (
-                            <button
-                              onClick={() => {
-                                setBatchChangeCandidate(app);
-                                setNewBatchIdForChange(app.assignedBatchId);
-                                setBatchChangeModalOpen(true);
-                              }}
-                              className="text-blue-600 hover:text-blue-800 font-semibold"
-                            >
-                              Change
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                setBatchAssignmentCandidate(app);
-                                setBatchModalOpen(true);
-                              }}
-                              className="text-green-600 hover:text-green-800 font-semibold"
-                            >
-                              Assign
-                            </button>
-                          )}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {app.status === 'ENROLLED' ? (
+                              <span className="badge-green text-[11px] font-bold px-2 py-0.5 rounded">
+                                Enrolled
+                              </span>
+                            ) : (
+                              <>
+                                {app.assignedBatchId ? (
+                                  <button
+                                    onClick={() => {
+                                      setBatchChangeCandidate(app);
+                                      setNewBatchIdForChange(app.assignedBatchId);
+                                      setBatchChangeModalOpen(true);
+                                    }}
+                                    className="text-blue-600 hover:text-blue-800 font-semibold"
+                                  >
+                                    Change
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      setBatchAssignmentCandidate(app);
+                                      setBatchModalOpen(true);
+                                    }}
+                                    className="text-green-600 hover:text-green-800 font-semibold"
+                                  >
+                                    Assign
+                                  </button>
+                                )}
+
+                                <button
+                                  onClick={() => handleConvertToStudent(app)}
+                                  disabled={convertingId === app.id}
+                                  className="btn bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-2.5 py-1 rounded shadow-sm flex items-center gap-1"
+                                  title="Convert Candidate to Active Student Account"
+                                >
+                                  {convertingId === app.id ? (
+                                    <div className="spinner border-white border-t-transparent w-3 h-3" />
+                                  ) : (
+                                    <>
+                                      <UserCheck size={12} />
+                                      <span>Convert</span>
+                                    </>
+                                  )}
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}

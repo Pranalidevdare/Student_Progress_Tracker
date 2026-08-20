@@ -76,27 +76,8 @@ public class InterviewServiceImpl implements InterviewService {
                 .or(() -> studentRepository.findByEmail(request.getStudentId()))
                 .orElse(null);
 
-        if (student == null) {
-            if (appOpt.isPresent()) {
-                Application app = appOpt.get();
-                student = studentRepository.findByEmail(app.getEmail()).orElse(null);
-                if (student == null) {
-                    student = Student.builder()
-                            .id(app.getId())
-                            .firstName(app.getFullName() != null ? app.getFullName().split(" ")[0] : "Candidate")
-                            .lastName(app.getFullName() != null && app.getFullName().contains(" ") ? app.getFullName().substring(app.getFullName().indexOf(" ") + 1) : "")
-                            .email(app.getEmail())
-                            .mobile(app.getMobile())
-                            .batchId(request.getBatchId())
-                            .selectionStatus(SelectionStatus.TECHNICAL_PENDING)
-                            .createdAt(LocalDateTime.now())
-                            .updatedAt(LocalDateTime.now())
-                            .build();
-                    student = studentRepository.save(student);
-                }
-            } else {
-                throw new RuntimeException("Student not found with id : " + request.getStudentId());
-            }
+        if (student == null && appOpt.isEmpty()) {
+            throw new RuntimeException("Candidate / Student not found with id : " + request.getStudentId());
         }
 
         String interviewType = request.getInterviewType()
@@ -219,9 +200,12 @@ public class InterviewServiceImpl implements InterviewService {
         // CREATE INTERVIEW
         // -----------------------------------------------------
 
+        String evaluatedStudentId = student != null ? student.getId() : (appOpt.isPresent() ? appOpt.get().getApplicationNumber() : request.getStudentId());
+        String evaluatedStudentName = student != null ? buildStudentName(student) : (appOpt.isPresent() ? appOpt.get().getFullName() : "Candidate");
+
         Interview interview = Interview.builder()
-                .studentId(student.getId())
-                .studentName(buildStudentName(student))
+                .studentId(evaluatedStudentId)
+                .studentName(evaluatedStudentName)
 
                 .trainerId(request.getTrainerId())
 

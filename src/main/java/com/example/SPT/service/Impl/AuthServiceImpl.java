@@ -141,6 +141,7 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    @Override
     public AuthResponse changePassword(String email, String currentPassword, String newPassword) {
         List<User> users = userRepository.findAllByEmail(email);
 

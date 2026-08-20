@@ -46,5 +46,7 @@ public enum ApplicationStatus {
 
     REJECTED,
 
-    BATCH_ASSIGNED
+    BATCH_ASSIGNED,
+
+    ENROLLED
 }

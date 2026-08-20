@@ -25,6 +25,8 @@ public interface StudentRepository extends MongoRepository<Student, String> {
 
     List<Student> findAllByStudentId(String studentId);
 
+    boolean existsByStudentId(String studentId);
+
     long countByBatchId(String batchId);
 
     List<Student> findByBatchId(String batchId);

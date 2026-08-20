@@ -10,4 +10,5 @@ public interface AuthService {
 
     AuthResponse login(LoginRequest request);
 
+    AuthResponse changePassword(String email, String currentPassword, String newPassword);
 }

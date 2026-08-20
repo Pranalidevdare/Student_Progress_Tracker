@@ -12,6 +12,7 @@ import DocumentationPage from './pages/public/DocumentationPage';
 import SelectionStatusPage from './pages/public/SelectionStatusPage';
 
 import Login from './pages/Login';
+import ChangePassword from './pages/ChangePassword';
 import RoleDashboardDispatcher from './pages/RoleDashboardDispatcher';
 import Dashboard from './pages/Dashboard';
 import StudentDashboard from './pages/StudentDashboard';
@@ -33,9 +34,12 @@ import BatchManagement from './pages/BatchManagement';
 import TrainerLayout from './layouts/TrainerLayout';
 
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+  if (user?.mustChangePassword) {
+    return <Navigate to="/change-password" replace />;
   }
   return children;
 };
@@ -56,8 +60,9 @@ export default function App() {
             <Route path="/documentation" element={<DocumentationPage />} />
             <Route path="/selection-status" element={<SelectionStatusPage />} />
 
-            {/* Unified Login Portal */}
+            {/* Unified Login Portal & Change Password */}
             <Route path="/login" element={<Login />} />
+            <Route path="/change-password" element={<ChangePassword />} />
 
             {/* Protected Role-Based Application Routes */}
             <Route

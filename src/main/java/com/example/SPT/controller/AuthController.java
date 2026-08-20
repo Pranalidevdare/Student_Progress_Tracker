@@ -41,4 +41,25 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/change-password")
+    public ResponseEntity<AuthResponse> changePassword(
+            @Valid @RequestBody com.example.SPT.dto.request.PasswordChangeRequest request,
+            java.security.Principal principal) {
+
+        String email = request.getEmail();
+        if ((email == null || email.isBlank()) && principal != null) {
+            email = principal.getName();
+        }
+
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("User email is required for password change");
+        }
+
+        AuthResponse response = authService.changePassword(
+                email,
+                request.getCurrentPassword(),
+                request.getNewPassword());
+
+        return ResponseEntity.ok(response);
+    }
 }
